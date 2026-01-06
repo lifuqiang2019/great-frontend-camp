@@ -1,65 +1,88 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState } from 'react';
+import CodingCommunity from '@/components/CodingCommunity';
+import LoginModal from '@/components/LoginModal';
+import { useSession, signOut } from '@/lib/auth-client';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState('编程社区题库');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const { data: session } = useSession();
+
+  const handleAvatarClick = async () => {
+    if (session) {
+      if (confirm('确定要退出登录吗？')) {
+        await signOut();
+      }
+    } else {
+      setIsLoginModalOpen(true);
+    }
+  };
+
+  const navItems = [
+    { name: '主页' },
+    { name: '刷题路线' },
+    { name: '开始面试' },
+    { name: '编程社区题库' }
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Navbar */}
+      <nav className="bg-primary-900 shadow-subtle py-[0.8rem] flex-shrink-0 border-b border-primary-800">
+        <div className="max-w-full m-0 px-10 flex items-center justify-between">
+          <div className="flex items-center min-w-[100px]">
+            <div className="text-accent-gold font-bold text-[18px] bg-primary-800 px-[12px] py-[6px] rounded font-data border border-primary-700 shadow-sm">LOGO</div>
+          </div>
+          <ul className="flex justify-center list-none gap-[15px] m-0 p-0 flex-1">
+            {navItems.map((item) => (
+              <li key={item.name}>
+                <a
+                  href="#"
+                  className={`no-underline text-primary-100/80 text-[15px] font-medium transition-all duration-300 px-5 py-[8px] rounded-md hover:text-neutral-white hover:bg-primary-800 ${
+                    activeTab === item.name ? '!text-neutral-white !bg-primary-800 !font-semibold shadow-inner ring-1 ring-primary-700' : ''
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveTab(item.name);
+                  }}
+                >
+                  {item.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center min-w-[100px] justify-end">
+            <div 
+              className="w-9 h-9 bg-primary-800 rounded-full flex items-center justify-center text-accent-gold text-[12px] cursor-pointer font-bold border border-primary-700 hover:bg-primary-700 transition-colors shadow-sm overflow-hidden"
+              onClick={handleAvatarClick}
+              title={session ? `已登录: ${session.user.name || session.user.email}` : "点击登录"}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              {session?.user.image ? (
+                <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
+              ) : (
+                session?.user.name ? session.user.name.charAt(0).toUpperCase() : "登录"
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 w-full m-0 p-0 overflow-hidden flex flex-col">
+        {activeTab === '编程社区题库' ? (
+          <CodingCommunity />
+        ) : (
+          <div className="p-5 max-w-[1200px] mx-auto w-full flex-1 overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">{activeTab}</h2>
+            <p className="text-gray-600">正在开发中...</p>
+          </div>
+        )}
       </main>
+
+      {/* Modals */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </div>
   );
 }

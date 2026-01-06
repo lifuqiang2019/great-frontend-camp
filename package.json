@@ -9,15 +9,25 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "better-auth": "^1.4.10",
+    "drizzle-orm": "^0.45.1",
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.1",
+    "marked-highlight": "^2.2.3",
     "next": "16.1.1",
+    "nodemailer": "^7.0.12",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
