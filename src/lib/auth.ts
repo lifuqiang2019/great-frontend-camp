@@ -15,7 +15,7 @@ export const auth = betterAuth({
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url, token }, request) => {
+    sendVerificationEmail: async ({ user, url, token: _token }, _request) => {
       console.log("Attempting to send verification email...");
       const useProxy = process.env.USE_PROXY === 'true';
       const proxyHost = process.env.PROXY_HOST || '127.0.0.1';
