@@ -45,7 +45,7 @@ export const auth = betterAuth({
           // @ts-expect-error: nodemailer types do not expose getSocket, but it is supported
           transporter.getSocket = function(options, callback) {
             console.log('🔗 Creating SOCKS5 connection to Gmail...');
-            // @ts-expect-error: SocksClient types mismatch with nodemailer callback expectation
+           
             SocksClient.createConnection({
               proxy: {
                 ipaddress: proxyHost, // 强制 IPv4
@@ -65,7 +65,7 @@ export const auth = betterAuth({
               }
               console.log('✅ SOCKS5 Connection Established!');
               if (info) {
-                // @ts-expect-error: socket type mismatch
+                
                 callback(null, info.socket);
               } else {
                 callback(new Error("No socket info returned"));

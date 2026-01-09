@@ -5,6 +5,12 @@ import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
+import * as prettier from 'prettier/standalone';
+import type { Plugin } from 'prettier';
+import parserHtml from 'prettier/plugins/html';
+import parserBabel from 'prettier/plugins/babel';
+import parserPostcss from 'prettier/plugins/postcss';
+import parserEstree from 'prettier/plugins/estree';
 
 interface QuestionItem {
   title: string;
@@ -74,6 +80,63 @@ export default function CodingCommunity() {
     );
   }, []);
 
+  const formatMarkdownCode = async (text: string) => {
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const replacements: { start: number; end: number; content: string }[] = [];
+    let match;
+
+    // Find all code blocks
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      const [fullMatch, lang, code] = match;
+      const language = lang || 'plaintext';
+      
+      let parser = '';
+      let plugins: (string | Plugin)[] = [];
+
+      if (['html', 'xml'].includes(language)) {
+        parser = 'html';
+        plugins = [parserHtml, parserPostcss, parserBabel, parserEstree];
+      } else if (['css', 'scss', 'less'].includes(language)) {
+        parser = 'css';
+        plugins = [parserPostcss];
+      } else if (['javascript', 'typescript', 'js', 'ts', 'jsx', 'tsx'].includes(language)) {
+        parser = 'babel';
+        plugins = [parserBabel, parserEstree];
+      }
+
+      if (parser) {
+        try {
+          const formatted = await prettier.format(code, {
+            parser,
+            plugins,
+            printWidth: 80,
+            tabWidth: 2,
+            useTabs: false,
+            semi: true,
+            singleQuote: true,
+          });
+          
+          replacements.push({
+            start: match.index,
+            end: match.index + fullMatch.length,
+            content: `\`\`\`${language}\n${formatted.trim()}\n\`\`\``
+          });
+        } catch (e) {
+          console.warn(`Prettier formatting failed for ${language}:`, e);
+        }
+      }
+    }
+
+    // Apply replacements from end to start to avoid index shifting
+    let result = text;
+    for (let i = replacements.length - 1; i >= 0; i--) {
+      const { start, end, content } = replacements[i];
+      result = result.substring(0, start) + content + result.substring(end);
+    }
+
+    return result;
+  };
+
   const filteredQuestions = useMemo(() => {
     let questions: QuestionItem[] = [];
     Object.values(allQuestions).forEach(list => {
@@ -96,7 +159,8 @@ export default function CodingCommunity() {
       const response = await fetch(`/大前端宝典_test/${item.fileName}`);
       if (response.ok) {
         const text = await response.text();
-        const html = await marked.parse(text);
+        const formattedText = await formatMarkdownCode(text);
+        const html = await marked.parse(formattedText);
         setCurrentContent(html);
       } else {
         setCurrentContent('<p>加载题目内容失败 (Mock: File not found)</p>');
@@ -135,9 +199,9 @@ export default function CodingCommunity() {
               className={`group p-[10px_14px] mb-1 cursor-pointer rounded-lg transition-all duration-200 flex items-start gap-3 text-sm text-primary-700 leading-relaxed hover:bg-primary-100 hover:text-primary-900 ${selectedIndex === index ? 'bg-primary-200 text-primary-900 font-medium' : ''}`}
             >
               <span className={`text-primary-400 font-mono text-xs min-w-[20px] h-5 mt-[1px] flex items-center justify-center bg-primary-100 rounded font-semibold
-                ${index === 0 ? '!bg-accent-copper/10 !text-accent-copper' : ''}
-                ${index === 1 ? '!bg-accent-blue/10 !text-accent-blue' : ''}
-                ${index === 2 ? '!bg-primary-200 !text-primary-600' : ''}
+                ${index === 0 && selectedIndex !== index ? '!bg-accent-copper/10 !text-accent-copper' : ''}
+                ${index === 1 && selectedIndex !== index ? '!bg-accent-blue/10 !text-accent-blue' : ''}
+                ${index === 2 && selectedIndex !== index ? '!bg-primary-200 !text-primary-600' : ''}
                 ${selectedIndex === index ? '!bg-primary-700 !text-neutral-white' : ''}
               `}>
                 {index + 1}
@@ -159,9 +223,10 @@ export default function CodingCommunity() {
             [&>h2]:text-xl [&>h2]:mt-[30px] [&>h2]:mb-4 [&>h2]:font-semibold [&>h2]:text-primary-900 [&>h2]:pl-[10px] [&>h2]:border-l-4 [&>h2]:border-accent-copper [&>h2]:leading-[1.4]
             [&>h3]:text-[17px] [&>h3]:mt-6 [&>h3]:mb-[14px] [&>h3]:font-semibold [&>h3]:text-primary-800
             [&>p]:mt-0 [&>p]:mb-4 [&>p]:text-justify
-            [&_pre]:p-4 [&_pre]:overflow-auto [&_pre]:text-[13px] [&_pre]:leading-[1.5] [&_pre]:bg-primary-900 [&_pre]:rounded-lg [&_pre]:mb-5 [&_pre]:text-primary-100 [&_pre]:shadow-[0_4px_12px_rgba(0,0,0,0.1)]
-            [&_code]:font-mono
-            [&_:not(pre)>code]:p-[3px_6px] [&_:not(pre)>code]:mx-[2px] [&_:not(pre)>code]:text-[0.9em] [&_:not(pre)>code]:bg-accent-copper/10 [&_:not(pre)>code]:text-accent-copper [&_:not(pre)>code]:rounded
+            [&_pre]:p-5 [&_pre]:pt-[48px] [&_pre]:overflow-auto [&_pre]:text-[14px] [&_pre]:leading-relaxed [&_pre]:bg-[#282c34] [&_pre]:rounded-xl [&_pre]:mb-6 [&_pre]:shadow-lg [&_pre]:relative
+            [&_pre]:before:content-[''] [&_pre]:before:absolute [&_pre]:before:top-[18px] [&_pre]:before:left-[18px] [&_pre]:before:w-3 [&_pre]:before:h-3 [&_pre]:before:rounded-full [&_pre]:before:bg-[#ff5f56] [&_pre]:before:shadow-[20px_0_0_#ffbd2e,40px_0_0_#27c93f]
+            [&_pre_code]:!bg-transparent [&_pre_code]:!p-0 [&_pre_code]:font-mono [&_pre_code]:text-inherit
+            [&_:not(pre)>code]:p-[3px_6px] [&_:not(pre)>code]:mx-[2px] [&_:not(pre)>code]:text-[0.9em] [&_:not(pre)>code]:bg-accent-copper/10 [&_:not(pre)>code]:text-accent-copper [&_:not(pre)>code]:rounded [&_:not(pre)>code]:font-mono
             [&_blockquote]:p-[16px_20px] [&_blockquote]:text-primary-600 [&_blockquote]:bg-primary-50 [&_blockquote]:border-l-4 [&_blockquote]:border-accent-copper [&_blockquote]:my-6 [&_blockquote]:rounded-r
             [&_ul]:pl-6 [&_ul]:mb-5 [&_ol]:pl-6 [&_ol]:mb-5
             [&_li]:mb-2

@@ -19,6 +19,7 @@
     "marked-highlight": "^2.2.3",
     "next": "16.1.1",
     "nodemailer": "^7.0.12",
+    "prettier": "^3.7.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "socks": "^2.8.7",
