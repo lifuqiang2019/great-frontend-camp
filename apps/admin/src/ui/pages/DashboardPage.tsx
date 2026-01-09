@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Col, Row, Statistic, Typography, Spin, List, Avatar, Space, Tag, theme } from "antd";
 import { UserOutlined, RiseOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import request from '../../lib/request';
 
 interface DashboardStats {
   totalUsers: number;
@@ -29,8 +30,7 @@ export function DashboardPage() {
   });
 
   useEffect(() => {
-    fetch('http://localhost:3001/users/stats')
-      .then(res => res.json())
+    request.get<DashboardStats>('/users/stats')
       .then(data => {
         setStats(data);
       })

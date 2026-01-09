@@ -5,6 +5,7 @@ import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-dark.css';
+import { request } from '../lib/request';
 
 interface QuestionItem {
   title: string;
@@ -91,19 +92,18 @@ export default function CodingCommunity() {
   const selectQuestion = async (index: number, item: QuestionItem) => {
     setSelectedIndex(index);
     try {
-      // In a real app, you would fetch from an API or public folder
-      // For this demo, we'll assume files are in /大前端宝典_test/
-      const response = await fetch(`/大前端宝典_test/${item.fileName}`);
-      if (response.ok) {
-        const text = await response.text();
-        const html = await marked.parse(text);
-        setCurrentContent(html);
-      } else {
-        setCurrentContent('<p>加载题目内容失败 (Mock: File not found)</p>');
-      }
+      // 使用封装的 request 请求静态文件
+      // 注意：request 拦截器直接返回 data，所以不需要 .json() 或 .text()，但 axios 默认解析 JSON。
+      // 对于 Markdown 文件，我们需要文本格式。
+      const data = await request.get<string>(`/大前端宝典_test/${item.fileName}`, {
+        responseType: 'text'
+      });
+      
+      const html = await marked.parse(data);
+      setCurrentContent(html);
     } catch (error) {
-      console.error('Failed to load markdown:', error);
-      setCurrentContent('<p>加载题目内容出错</p>');
+      console.error('Failed to load content:', error);
+      setCurrentContent('<p>加载失败，请稍后重试</p>');
     }
   };
 
