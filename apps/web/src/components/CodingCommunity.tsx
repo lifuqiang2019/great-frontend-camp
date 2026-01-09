@@ -142,7 +142,7 @@ export default function CodingCommunity() {
               `}>
                 {index + 1}
               </span>
-              <span className="flex-1 overflow-hidden text-ellipsis break-all transition-all duration-500 ease-in-out line-clamp-1 max-h-[1.625em] group-hover:line-clamp-none group-hover:max-h-[200px]" title={item.title}>
+              <span className="flex-1 truncate" title={item.title}>
                 {item.title}
               </span>
             </li>

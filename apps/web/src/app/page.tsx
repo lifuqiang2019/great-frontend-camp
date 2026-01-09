@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import CodingCommunity from '@/components/CodingCommunity';
+import StudentCamp from '@/components/StudentCamp';
 import LoginModal from '@/components/LoginModal';
 import { useSession, signOut } from '@/lib/auth-client';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('编程社区题库');
+  const [activeTab, setActiveTab] = useState('前端面试题库');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const { data: session } = useSession();
 
@@ -21,10 +22,8 @@ export default function Home() {
   };
 
   const navItems = [
-    { name: '主页' },
-    { name: '刷题路线' },
-    { name: '开始面试' },
-    { name: '编程社区题库' }
+    { name: '前端面试题库' },
+    { name: '同学营活动', hot: true }
   ];
 
   return (
@@ -32,12 +31,27 @@ export default function Home() {
       {/* Navbar */}
       <nav className="bg-primary-900 shadow-subtle py-[0.8rem] flex-shrink-0 border-b border-primary-800">
         <div className="max-w-full m-0 px-10 flex items-center justify-between">
-          <div className="flex items-center min-w-[100px]">
-            <div className="text-accent-gold font-bold text-[18px] bg-primary-800 px-[12px] py-[6px] rounded font-data border border-primary-700 shadow-sm">LOGO</div>
+          <div className="flex items-center min-w-[100px] mr-10">
+            <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-gold via-[#eac14d] to-[#b8860b] flex items-center justify-center shadow-lg shadow-black/20 border border-white/10 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-primary-900">
+                  <path d="M16 18l6-6-6-6" />
+                  <path d="M8 6l-6 6 6 6" />
+                </svg>
+              </div>
+              <div className="flex flex-col justify-center -space-y-1">
+                <span className="text-[13px] font-bold text-accent-gold tracking-wide ml-[1px] group-hover:text-white transition-colors duration-300">
+                  大前端
+                </span>
+                <span className="text-[20px] font-black text-neutral-white tracking-wider group-hover:text-accent-gold transition-colors duration-300">
+                  同学营
+                </span>
+              </div>
+            </div>
           </div>
-          <ul className="flex justify-center list-none gap-[15px] m-0 p-0 flex-1">
+          <ul className="flex justify-start list-none gap-[15px] m-0 p-0 flex-1">
             {navItems.map((item) => (
-              <li key={item.name}>
+              <li key={item.name} className="relative">
                 <a
                   href="#"
                   className={`no-underline text-primary-100/80 text-[15px] font-medium transition-all duration-300 px-5 py-[8px] rounded-md hover:text-neutral-white hover:bg-primary-800 ${
@@ -50,6 +64,11 @@ export default function Home() {
                 >
                   {item.name}
                 </a>
+                {item.hot && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                    HOT
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -71,8 +90,10 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 w-full m-0 p-0 overflow-hidden flex flex-col">
-        {activeTab === '编程社区题库' ? (
+        {activeTab === '前端面试题库' ? (
           <CodingCommunity />
+        ) : activeTab === '同学营活动' ? (
+          <StudentCamp />
         ) : (
           <div className="p-5 max-w-[1200px] mx-auto w-full flex-1 overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">{activeTab}</h2>

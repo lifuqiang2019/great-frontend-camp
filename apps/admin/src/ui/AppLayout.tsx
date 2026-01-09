@@ -7,7 +7,8 @@ import {
   UserOutlined, 
   LogoutOutlined, 
   SettingOutlined,
-  BellOutlined
+  BellOutlined,
+  FileTextOutlined
 } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
@@ -20,6 +21,7 @@ export function AppLayout() {
 
   const selectedKeys = useMemo(() => {
     if (location.pathname.startsWith("/users")) return ["users"];
+    if (location.pathname.startsWith("/questions")) return ["questions"];
     return ["dashboard"];
   }, [location.pathname]);
 
@@ -27,6 +29,7 @@ export function AppLayout() {
     const items = [{ title: '首页' }];
     if (location.pathname.startsWith("/dashboard")) items.push({ title: '仪表盘' });
     if (location.pathname.startsWith("/users")) items.push({ title: '用户管理' });
+    if (location.pathname.startsWith("/questions")) items.push({ title: '题库管理' });
     return items;
   }, [location.pathname]);
 
@@ -83,6 +86,11 @@ export function AppLayout() {
                       key: "users",
                       icon: <TeamOutlined />,
                       label: <Link to="/users">用户管理</Link>,
+                    },
+                    {
+                      key: "questions",
+                      icon: <FileTextOutlined />,
+                      label: <Link to="/questions">题库管理</Link>,
                     }
                   ]}
                 />

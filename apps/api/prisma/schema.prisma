@@ -66,3 +66,27 @@ model Verification {
 
   @@map("verification")
 }
+
+model QuestionCategory {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  name      String     @unique
+  questions Question[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  @@map("question_category")
+}
+
+model Question {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String?
+  solution    String?
+  transcript  String?
+  categoryId  String           @db.ObjectId
+  category    QuestionCategory @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("question")
+}
