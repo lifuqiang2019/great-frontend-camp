@@ -6,6 +6,11 @@ import { UsersService } from "./users.service";
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('stats')
+  getStats() {
+    return this.usersService.getDashboardStats();
+  }
+
   @Get()
   findAll() {
     return this.usersService.findAll();

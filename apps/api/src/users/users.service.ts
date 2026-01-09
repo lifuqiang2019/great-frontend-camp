@@ -21,4 +21,47 @@ export class UsersService {
       orderBy: { createdAt: "desc" },
     });
   }
+
+  async getDashboardStats() {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [totalUsers, newUsersToday, activeSessions, recentUsers] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({
+        where: {
+          createdAt: {
+            gte: startOfDay,
+          },
+        },
+      }),
+      this.prisma.session.count({
+        where: {
+          expiresAt: {
+            gt: now,
+          },
+        },
+      }),
+      this.prisma.user.findMany({
+        take: 5,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          image: true,
+        }
+      })
+    ]);
+
+    return {
+      totalUsers,
+      newUsersToday,
+      activeSessions,
+      recentUsers,
+    };
+  }
 }
