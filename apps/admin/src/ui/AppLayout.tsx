@@ -20,16 +20,28 @@ export function AppLayout() {
   } = theme.useToken();
 
   const selectedKeys = useMemo(() => {
+    if (location.pathname === "/questions" || location.pathname.startsWith("/questions/edit") || location.pathname === "/questions/create") return ["questions-list"];
+    if (location.pathname === "/questions/categories") return ["questions-categories"];
     if (location.pathname.startsWith("/users")) return ["users"];
-    if (location.pathname.startsWith("/questions")) return ["questions"];
     return ["dashboard"];
+  }, [location.pathname]);
+
+  const openKeys = useMemo(() => {
+    if (location.pathname.startsWith("/questions")) return ["questions"];
+    return [];
   }, [location.pathname]);
 
   const breadcrumbItems = useMemo(() => {
     const items = [{ title: '首页' }];
     if (location.pathname.startsWith("/dashboard")) items.push({ title: '仪表盘' });
     if (location.pathname.startsWith("/users")) items.push({ title: '用户管理' });
-    if (location.pathname.startsWith("/questions")) items.push({ title: '题库管理' });
+    if (location.pathname.startsWith("/questions")) {
+      items.push({ title: '题库管理' });
+      if (location.pathname === "/questions/categories") items.push({ title: '分类管理' });
+      else if (location.pathname === "/questions/create") items.push({ title: '录入题目' });
+      else if (location.pathname.startsWith("/questions/edit")) items.push({ title: '编辑题目' });
+      else items.push({ title: '题目列表' });
+    }
     return items;
   }, [location.pathname]);
 
@@ -74,9 +86,10 @@ export function AppLayout() {
         <Menu
           theme="light"
           mode="inline"
-                  selectedKeys={selectedKeys}
-                  style={{ borderRight: 0, padding: '0 8px' }}
-                  items={[
+          selectedKeys={selectedKeys}
+          defaultOpenKeys={openKeys}
+          style={{ borderRight: 0, padding: '0 8px' }}
+          items={[
                     {
                       key: "dashboard",
                       icon: <DashboardOutlined />,
@@ -90,7 +103,11 @@ export function AppLayout() {
                     {
                       key: "questions",
                       icon: <FileTextOutlined />,
-                      label: <Link to="/questions">题库管理</Link>,
+                      label: "题库管理",
+                      children: [
+                        { key: "questions-list", label: <Link to="/questions">题目列表</Link> },
+                        { key: "questions-categories", label: <Link to="/questions/categories">分类管理</Link> },
+                      ]
                     }
                   ]}
                 />

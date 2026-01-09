@@ -5,6 +5,9 @@ import { DashboardPage } from "./ui/pages/DashboardPage";
 import { UsersPage } from "./ui/pages/UsersPage";
 import { QuestionsPage } from "./ui/pages/QuestionsPage";
 
+import { CategoriesPage } from "./ui/pages/CategoriesPage";
+import { QuestionEditorPage } from "./ui/pages/QuestionEditorPage";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -14,6 +17,9 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <DashboardPage /> },
       { path: "users", element: <UsersPage /> },
       { path: "questions", element: <QuestionsPage /> },
+      { path: "questions/categories", element: <CategoriesPage /> },
+      { path: "questions/create", element: <QuestionEditorPage /> },
+      { path: "questions/edit/:id", element: <QuestionEditorPage /> },
     ],
   },
 ]);
