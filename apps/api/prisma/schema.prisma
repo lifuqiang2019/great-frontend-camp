@@ -87,6 +87,8 @@ model Question {
   interviewerQuestion String?
   categoryId  String
   category    QuestionCategory @relation(fields: [categoryId], references: [id])
+  hotScore    Int              @default(0)
+  videoUrl    String?
   favorites   Favorite[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

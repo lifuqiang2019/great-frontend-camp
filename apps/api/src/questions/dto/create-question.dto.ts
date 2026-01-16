@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString, IsNumber } from "class-validator";
 
 export class CreateQuestionCategoryDto {
   @IsString()
@@ -30,4 +30,12 @@ export class CreateQuestionDto {
   @IsString()
   @IsNotEmpty()
   categoryId!: string;
+
+  @IsNumber()
+  @IsOptional()
+  hotScore?: number;
+
+  @IsString()
+  @IsOptional()
+  videoUrl?: string;
 }

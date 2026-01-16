@@ -129,6 +129,8 @@ interface QuestionItem {
   interviewerQuestion?: string;
   categoryId: string;
   category?: Category;
+  hotScore?: number;
+  videoUrl?: string;
 }
 
 interface CodingCommunityProps {
@@ -148,6 +150,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
   const [transcriptHtml, setTranscriptHtml] = useState('');
   const [activeTab, setActiveTab] = useState('solution');
   const [isLoading, setIsLoading] = useState(true);
+  const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -402,13 +405,38 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     return result;
   }, [questions, searchQuery, viewMode, favoriteIds]);
 
-  // Mock Hot Questions (randomly select 5 for demo)
+  // Hot Questions sorted by hotScore
   const hotQuestions = useMemo(() => {
-    // In a real app, this would be sorted by viewCount or similar
     return [...questions]
-      .sort(() => 0.5 - Math.random())
+      .sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0))
       .slice(0, 5);
   }, [questions]);
+
+  // Video Preview Component
+  const VideoPreview = ({ url, title }: { url: string; title: string }) => {
+    return (
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-64 bg-white rounded-lg shadow-xl border border-primary-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+        <div className="relative aspect-video bg-black rounded overflow-hidden mb-2">
+          <video 
+            src={url} 
+            className="w-full h-full object-cover"
+            autoPlay 
+            muted 
+            loop 
+            playsInline
+          />
+        </div>
+        <div className="text-xs text-primary-600 font-medium truncate px-1">
+          {title}
+        </div>
+        <div className="text-[10px] text-primary-400 px-1 mt-0.5">
+          正在播放视频讲解
+        </div>
+        {/* Arrow */}
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-b border-r border-primary-200 transform rotate-45"></div>
+      </div>
+    );
+  };
 
   const favoriteQuestions = useMemo(() => {
     return questions.filter(q => favoriteIds.has(q.id));
@@ -552,7 +580,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                   </div>
                   
                   {expandedCategoryIds.includes('hot') && (
-                    <div className="ml-4 pl-3 border-l border-primary-100 mt-1">
+                    <div className="ml-4 pl-3 border-l border-primary-100 mt-1 relative">
                       {hotQuestions.map((item, index) => (
                         <div key={item.id} className="relative h-9 mb-0.5 z-0 hover:z-20">
                           <div
@@ -811,8 +839,18 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                   <div 
                     key={`hot-grid-${item.id}`}
                     onClick={() => selectQuestion(item)}
-                    className="bg-white p-4 rounded-xl border border-primary-100 shadow-sm hover:shadow-md hover:border-accent-copper/30 transition-all cursor-pointer group"
+                    onMouseEnter={() => setHoveredQuestionId(item.id)}
+                    onMouseLeave={() => setHoveredQuestionId(null)}
+                    className="bg-white p-4 rounded-xl border border-primary-100 shadow-sm hover:shadow-md hover:border-accent-copper/30 transition-all cursor-pointer group relative"
                   >
+                    {/* Video Preview Popup for Grid Item */}
+                    {hoveredQuestionId === item.id && (item.videoUrl || item.id === hotQuestions[0].id) && (
+                      <VideoPreview 
+                        url={item.videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"} 
+                        title={item.title} 
+                      />
+                    )}
+
                     <div className="flex items-start gap-3">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-0.5 ${
                         index < 3 ? 'bg-red-50 text-red-600' : 'bg-primary-100 text-primary-600'
