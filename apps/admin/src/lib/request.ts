@@ -32,6 +32,7 @@ const http = {
   get: <T = any>(url: string, config?: any) => request.get<T, T>(url, config),
   post: <T = any>(url: string, data?: any, config?: any) => request.post<T, T>(url, data, config),
   put: <T = any>(url: string, data?: any, config?: any) => request.put<T, T>(url, data, config),
+  patch: <T = any>(url: string, data?: any, config?: any) => request.patch<T, T>(url, data, config),
   delete: <T = any>(url: string, config?: any) => request.delete<T, T>(url, config),
 };
 

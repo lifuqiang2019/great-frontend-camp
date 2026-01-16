@@ -15,6 +15,7 @@ interface Question {
   content?: string;
   solution?: string;
   transcript?: string;
+  interviewerQuestion?: string;
   categoryId: string;
   category?: Category;
 }

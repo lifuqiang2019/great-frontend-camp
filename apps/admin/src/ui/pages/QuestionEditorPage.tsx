@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Form, Input, Select, Button, Card, message, Space, Breadcrumb } from 'antd';
+import { Form, Input, Select, Button, Card, message, Space, Breadcrumb, Tabs } from 'antd';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import MDEditor from '@uiw/react-md-editor';
 import http from '../../lib/request';
@@ -17,6 +17,7 @@ export const QuestionEditorPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [solution, setSolution] = useState<string>('');
+  const [transcript, setTranscript] = useState<string>('');
   
   const isEdit = !!id;
 
@@ -36,6 +37,7 @@ export const QuestionEditorPage: React.FC = () => {
       const res = await http.get<any>(`/questions/${id}`);
       form.setFieldsValue(res);
       setSolution(res.solution || '');
+      setTranscript(res.transcript || '');
     } catch (error) {
       console.error(error);
       message.error('加载题目失败');
@@ -54,7 +56,7 @@ export const QuestionEditorPage: React.FC = () => {
   const handleSubmit = async (values: any) => {
     setSubmitting(true);
     try {
-      const data = { ...values, solution };
+      const data = { ...values, solution, transcript };
       if (isEdit) {
         await http.patch(`/questions/${id}`, data);
         message.success('更新成功');
@@ -65,6 +67,7 @@ export const QuestionEditorPage: React.FC = () => {
       navigate('/questions');
     } catch (error) {
       console.error(error);
+      message.error('提交失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -114,29 +117,52 @@ export const QuestionEditorPage: React.FC = () => {
           </div>
 
           <Form.Item
-            name="transcript"
-            label="面试回答逐字稿"
+            name="interviewerQuestion"
+            label="面试官提问内容"
             style={{ marginBottom: 16 }}
           >
             <Input.TextArea 
-              rows={4}
-              placeholder="请输入逐字稿（选填）" 
+              rows={3}
+              placeholder="请输入面试官提问内容（选填）" 
               style={{ resize: 'vertical' }}
             />
           </Form.Item>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 400 }}>
-            <div className="ant-form-item-label">
-              <label>题解 (Markdown)</label>
-            </div>
-            <div style={{ flex: 1, border: '1px solid #d9d9d9', borderRadius: 8, overflow: 'hidden' }}>
-              <MDEditor
-                value={solution}
-                onChange={(val) => setSolution(val || '')}
-                height="100%"
-                preview="live"
-              />
-            </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Tabs
+              defaultActiveKey="solution"
+              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+              items={[
+                {
+                  key: 'solution',
+                  label: '题解 (Markdown)',
+                  children: (
+                    <div style={{ height: '100%', border: '1px solid #d9d9d9', borderRadius: 8, overflow: 'hidden' }}>
+                      <MDEditor
+                        value={solution}
+                        onChange={(val) => setSolution(val || '')}
+                        height="100%"
+                        preview="live"
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: 'transcript',
+                  label: '面试回答逐字稿 (Markdown)',
+                  children: (
+                    <div style={{ height: '100%', border: '1px solid #d9d9d9', borderRadius: 8, overflow: 'hidden' }}>
+                      <MDEditor
+                        value={transcript}
+                        onChange={(val) => setTranscript(val || '')}
+                        height="100%"
+                        preview="live"
+                      />
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
 
           <div style={{ textAlign: 'right', paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>

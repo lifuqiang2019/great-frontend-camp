@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  id            String    @id @default(uuid()) @map("_id")
   name          String
   email         String
   emailVerified Boolean
@@ -17,20 +17,21 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  favorites     Favorite[]
 
   @@unique([email])
   @@map("user")
 }
 
 model Session {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @default(uuid()) @map("_id")
   expiresAt DateTime
   token     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
-  userId    String   @db.ObjectId
+  userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
@@ -38,10 +39,10 @@ model Session {
 }
 
 model Account {
-  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  id                    String    @id @default(uuid()) @map("_id")
   accountId             String
   providerId            String
-  userId                String    @db.ObjectId
+  userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
@@ -57,7 +58,7 @@ model Account {
 }
 
 model Verification {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  id         String    @id @default(uuid()) @map("_id")
   identifier String
   value      String
   expiresAt  DateTime
@@ -68,7 +69,7 @@ model Verification {
 }
 
 model QuestionCategory {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  id        String     @id @default(uuid()) @map("_id")
   name      String     @unique
   questions Question[]
   createdAt DateTime   @default(now())
@@ -78,15 +79,29 @@ model QuestionCategory {
 }
 
 model Question {
-  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  id          String           @id @default(uuid()) @map("_id")
   title       String
   content     String?
   solution    String?
   transcript  String?
-  categoryId  String           @db.ObjectId
+  interviewerQuestion String?
+  categoryId  String
   category    QuestionCategory @relation(fields: [categoryId], references: [id])
+  favorites   Favorite[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
   @@map("question")
+}
+
+model Favorite {
+  id         String   @id @default(uuid()) @map("_id")
+  userId     String
+  questionId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, questionId])
+  @@map("favorite")
 }
