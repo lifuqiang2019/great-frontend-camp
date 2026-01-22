@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Space, Card, message, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Table, Button, Space, Card, message, Popconfirm, Modal, InputNumber, Input } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import http from '../../lib/request';
 
@@ -18,12 +18,39 @@ interface Question {
   interviewerQuestion?: string;
   categoryId: string;
   category?: Category;
+  hotScore?: number;
 }
+
+const HotScoreEditor: React.FC<{ id: string; score: number; onUpdate: (id: string, score: number) => Promise<void> }> = ({ id, score, onUpdate }) => {
+  const [value, setValue] = useState(score);
+
+  useEffect(() => {
+    setValue(score);
+  }, [score]);
+
+  const handleBlur = () => {
+    if (value !== score) {
+      onUpdate(id, value);
+    }
+  };
+
+  return (
+    <InputNumber
+      value={value}
+      onChange={(val) => setValue(val || 0)}
+      onBlur={handleBlur}
+      min={0}
+      style={{ width: 80 }}
+    />
+  );
+};
 
 export const QuestionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [searchText, setSearchText] = useState('');
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -51,7 +78,65 @@ export const QuestionsPage: React.FC = () => {
     }
   };
 
+  const handleUpdateHotScore = async (id: string, score: number) => {
+    try {
+      await http.patch(`/questions/${id}`, { hotScore: score });
+      message.success('热门指数已更新');
+      fetchQuestions();
+    } catch (error) {
+      console.error(error);
+      message.error('更新失败');
+    }
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedRowKeys.length === 0) return;
+
+    Modal.confirm({
+      title: '确认批量删除',
+      icon: <ExclamationCircleOutlined />,
+      content: `确定要删除选中的 ${selectedRowKeys.length} 个题目吗？此操作不可恢复。`,
+      onOk: async () => {
+        try {
+          setLoading(true);
+          await Promise.all(selectedRowKeys.map((id) => http.delete(`/questions/${id}`)));
+          message.success('批量删除成功');
+          setSelectedRowKeys([]);
+          fetchQuestions();
+        } catch (error) {
+          console.error(error);
+          message.error('删除过程中发生错误');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
+    setSelectedRowKeys(newSelectedRowKeys);
+  };
+
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: onSelectChange,
+  };
+
+  const filteredQuestions = useMemo(() => {
+    if (!searchText) return questions;
+    return questions.filter(q => 
+      q.title.toLowerCase().includes(searchText.toLowerCase()) || 
+      q.category?.name.toLowerCase().includes(searchText.toLowerCase())
+    );
+  }, [questions, searchText]);
+
   const columns = [
+    {
+      title: '序号',
+      key: 'index',
+      width: 80,
+      render: (_: unknown, __: Question, index: number) => index + 1,
+    },
     {
       title: '题目',
       dataIndex: 'title',
@@ -61,13 +146,27 @@ export const QuestionsPage: React.FC = () => {
       title: '分类',
       dataIndex: ['category', 'name'],
       key: 'category',
-      width: 200,
+      width: 150,
+    },
+    {
+      title: '热门指数',
+      dataIndex: 'hotScore',
+      key: 'hotScore',
+      width: 120,
+      sorter: (a: Question, b: Question) => (a.hotScore || 0) - (b.hotScore || 0),
+      render: (score: number, record: Question) => (
+        <HotScoreEditor 
+          id={record.id} 
+          score={score || 0} 
+          onUpdate={handleUpdateHotScore} 
+        />
+      ),
     },
     {
       title: '操作',
       key: 'action',
       width: 150,
-      render: (_: any, record: Question) => (
+      render: (_: unknown, record: Question) => (
         <Space size="middle">
           <Button 
             type="text" 
@@ -87,20 +186,45 @@ export const QuestionsPage: React.FC = () => {
       <Card
         title="题目列表"
         extra={
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={() => navigate('/questions/create')}
-          >
-            录入题目
-          </Button>
+          <Space>
+            <Input 
+              placeholder="搜索题目或分类" 
+              prefix={<SearchOutlined />} 
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              style={{ width: 200 }}
+              allowClear
+            />
+            {selectedRowKeys.length > 0 && (
+              <Button 
+                danger 
+                icon={<DeleteOutlined />} 
+                onClick={handleBatchDelete}
+              >
+                批量删除 ({selectedRowKeys.length})
+              </Button>
+            )}
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />} 
+              onClick={() => navigate('/questions/create')}
+            >
+              录入题目
+            </Button>
+          </Space>
         }
       >
         <Table 
+          rowSelection={rowSelection}
           columns={columns} 
-          dataSource={questions} 
+          dataSource={filteredQuestions} 
           rowKey="id" 
           loading={loading} 
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条`,
+          }}
         />
       </Card>
     </div>

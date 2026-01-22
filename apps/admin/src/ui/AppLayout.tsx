@@ -22,6 +22,7 @@ export function AppLayout() {
   const selectedKeys = useMemo(() => {
     if (location.pathname === "/questions" || location.pathname.startsWith("/questions/edit") || location.pathname === "/questions/create") return ["questions-list"];
     if (location.pathname === "/questions/categories") return ["questions-categories"];
+    if (location.pathname === "/questions/hot-config") return ["questions-hot-config"];
     if (location.pathname.startsWith("/users")) return ["users"];
     return ["dashboard"];
   }, [location.pathname]);
@@ -38,6 +39,7 @@ export function AppLayout() {
     if (location.pathname.startsWith("/questions")) {
       items.push({ title: '题库管理' });
       if (location.pathname === "/questions/categories") items.push({ title: '分类管理' });
+      else if (location.pathname === "/questions/hot-config") items.push({ title: '热门配置' });
       else if (location.pathname === "/questions/create") items.push({ title: '录入题目' });
       else if (location.pathname.startsWith("/questions/edit")) items.push({ title: '编辑题目' });
       else items.push({ title: '题目列表' });
@@ -107,6 +109,7 @@ export function AppLayout() {
                       children: [
                         { key: "questions-list", label: <Link to="/questions">题目列表</Link> },
                         { key: "questions-categories", label: <Link to="/questions/categories">分类管理</Link> },
+                        { key: "questions-hot-config", label: <Link to="/questions/hot-config">热门配置</Link> },
                       ]
                     }
                   ]}

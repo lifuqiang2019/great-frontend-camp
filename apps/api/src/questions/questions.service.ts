@@ -13,19 +13,43 @@ export class QuestionsService {
     });
   }
 
-  async findAllCategories() {
-    const categories = await this.prisma.questionCategory.findMany();
-    if (categories.length === 0) {
-      return [
-        { id: "mock-cat-1", name: "HTML" },
-        { id: "mock-cat-2", name: "CSS" },
-        { id: "mock-cat-3", name: "JavaScript" },
-        { id: "mock-cat-4", name: "React" },
-        { id: "mock-cat-5", name: "Vue" },
-        { id: "mock-cat-6", name: "Performance" },
-      ];
+  async removeCategory(id: string) {
+    // Check if there are questions in this category
+    const count = await this.prisma.question.count({
+      where: { categoryId: id },
+    });
+    
+    if (count > 0) {
+      throw new Error('Cannot delete category with associated questions');
     }
-    return categories;
+
+    return this.prisma.questionCategory.delete({
+      where: { id },
+    });
+  }
+
+  async findAllCategories() {
+    try {
+      const categories = await this.prisma.questionCategory.findMany();
+      if (categories.length === 0) {
+        return this.getMockCategories();
+      }
+      return categories;
+    } catch (error) {
+      console.error("Failed to fetch categories from DB, falling back to mock data:", error);
+      return this.getMockCategories();
+    }
+  }
+
+  private getMockCategories() {
+    return [
+      { id: "mock-cat-1", name: "HTML" },
+      { id: "mock-cat-2", name: "CSS" },
+      { id: "mock-cat-3", name: "JavaScript" },
+      { id: "mock-cat-4", name: "React" },
+      { id: "mock-cat-5", name: "Vue" },
+      { id: "mock-cat-6", name: "Performance" },
+    ];
   }
 
   // Questions
@@ -36,87 +60,73 @@ export class QuestionsService {
   }
 
   async findAllQuestions() {
-    const questions = await this.prisma.question.findMany({
-      include: {
-        category: true,
-      },
-    });
-    
-    if (questions.length === 0) {
-      return [
-        { 
-          id: "mock-q-1", 
-          title: "What is a closure in JavaScript?", 
-          categoryId: "mock-cat-3",
-          category: { id: "mock-cat-3", name: "JavaScript" },
-          content: "Explain the concept of closure.",
-          solution: "A closure is the combination of a function bundled together (enclosed) with references to its surrounding state (the lexical environment).",
-          transcript: null
+    try {
+      const questions = await this.prisma.question.findMany({
+        include: {
+          category: true,
         },
-        { 
-          id: "mock-q-2", 
-          title: "Explain CSS Box Model", 
-          categoryId: "mock-cat-2",
-          category: { id: "mock-cat-2", name: "CSS" },
-          content: "What are the components of the box model?",
-          solution: "Content, Padding, Border, Margin.",
-          transcript: null
-        },
-        { 
-          id: "mock-q-3", 
-          title: "React useEffect dependency array", 
-          categoryId: "mock-cat-4",
-          category: { id: "mock-cat-4", name: "React" },
-          content: "When does useEffect run?",
-          solution: "It runs after render. Dependencies control when it re-runs.",
-          transcript: null
-        },
-      ];
+      });
+      
+      if (questions.length === 0) {
+        return this.getMockQuestions();
+      }
+      
+      return questions;
+    } catch (error) {
+      console.error("Failed to fetch questions from DB, falling back to mock data:", error);
+      return this.getMockQuestions();
     }
-    
-    return questions;
+  }
+
+  private getMockQuestions() {
+    return [
+      { 
+        id: "mock-q-1", 
+        title: "What is a closure in JavaScript?", 
+        categoryId: "mock-cat-3",
+        category: { id: "mock-cat-3", name: "JavaScript" },
+        content: "Explain the concept of closure.",
+        solution: "A closure is the combination of a function bundled together (enclosed) with references to its surrounding state (the lexical environment).",
+        transcript: null
+      },
+      { 
+        id: "mock-q-2", 
+        title: "Explain CSS Box Model", 
+        categoryId: "mock-cat-2",
+        category: { id: "mock-cat-2", name: "CSS" },
+        content: "What are the components of the box model?",
+        solution: "Content, Padding, Border, Margin.",
+        transcript: null
+      },
+      { 
+        id: "mock-q-3", 
+        title: "React useEffect dependency array", 
+        categoryId: "mock-cat-4",
+        category: { id: "mock-cat-4", name: "React" },
+        content: "When does useEffect run?",
+        solution: "It runs after render. Dependencies control when it re-runs.",
+        transcript: null
+      },
+    ];
   }
 
   async findOneQuestion(id: string) {
     if (id.startsWith("mock-q-")) {
-      const mockQuestions = [
-        { 
-          id: "mock-q-1", 
-          title: "What is a closure in JavaScript?", 
-          categoryId: "mock-cat-3",
-          category: { id: "mock-cat-3", name: "JavaScript" },
-          content: "Explain the concept of closure.",
-          solution: "A closure is the combination of a function bundled together (enclosed) with references to its surrounding state (the lexical environment).",
-          transcript: null
-        },
-        { 
-          id: "mock-q-2", 
-          title: "Explain CSS Box Model", 
-          categoryId: "mock-cat-2",
-          category: { id: "mock-cat-2", name: "CSS" },
-          content: "What are the components of the box model?",
-          solution: "Content, Padding, Border, Margin.",
-          transcript: null
-        },
-        { 
-          id: "mock-q-3", 
-          title: "React useEffect dependency array", 
-          categoryId: "mock-cat-4",
-          category: { id: "mock-cat-4", name: "React" },
-          content: "When does useEffect run?",
-          solution: "It runs after render. Dependencies control when it re-runs.",
-          transcript: null
-        },
-      ];
+      const mockQuestions = this.getMockQuestions();
       return mockQuestions.find(q => q.id === id);
     }
 
-    return this.prisma.question.findUnique({
-      where: { id },
-      include: {
-        category: true,
-      },
-    });
+    try {
+      return await this.prisma.question.findUnique({
+        where: { id },
+        include: {
+          category: true,
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to fetch question ${id} from DB:`, error);
+      throw error;
+    }
   }
 
   async updateQuestion(id: string, data: Partial<CreateQuestionDto>) {
