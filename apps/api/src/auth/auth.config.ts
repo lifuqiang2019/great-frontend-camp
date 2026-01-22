@@ -124,7 +124,7 @@ export async function getAuth() {
     },
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.BETTER_AUTH_URL,
-    trustedOrigins: ["http://localhost:3000", "http://localhost:5173"],
+    trustedOrigins: ["*"],
   });
 
   return authInstance;
