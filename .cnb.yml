@@ -54,24 +54,39 @@ main:
           script:
             - |
               set -e
+              # 1. 设置镜像源
               echo "安装 pnpm..."
               npm install -g pnpm
               pnpm config set registry https://registry.npmmirror.com
               
-              echo "安装依赖..."
+              # 2. 智能安装依赖
+              echo "Installing dependencies..."
+              # 先尝试普通安装（利用缓存）
               pnpm install
               
-              echo "构建 Admin 项目..."
+              # 3. 尝试构建，如果捕捉到错误，则触发自愈逻辑
+              echo "Building Admin project..."
               export VITE_API_URL=https://api.bigfedcamp.com
               
               if ! pnpm --filter @greatfedcamp/admin build; then
-                 echo "Build failed! Cleaning and retrying..."
-                 rm -rf node_modules apps/admin/node_modules
-                 pnpm install --force
+                 echo "Build failed! Suspecting platform-specific binary issue."
+                 echo "Cleaning node_modules and forcing reinstall..."
+                 
+                 # 关键：清理所有可能的缓存干扰
+                 rm -rf node_modules pnpm-lock.yaml
+                 # 如果有子包的 node_modules 也要清理（保险起见）
+                 rm -rf apps/admin/node_modules
+                 
+                 # 重新安装（这次会在 Linux 环境下生成全新的依赖树）
+                 pnpm install
+                 
+                 # 再次尝试构建
+                 echo "Retrying build..."
                  pnpm --filter @greatfedcamp/admin build
               fi
               
-              echo "准备 COS 上传环境..."
+              # 4. 准备 COS 上传环境
+              echo "Preparing COS upload..."
               mkdir -p /tmp/cos-upload
               if [ ! -d "/tmp/cos-upload/node_modules" ]; then
                   npm install --prefix /tmp/cos-upload cos-nodejs-sdk-v5
