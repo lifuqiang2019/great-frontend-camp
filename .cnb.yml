@@ -54,21 +54,21 @@ main:
           script:
             - |
               set -e
-              echo "设置镜像源..."
-              npm config set registry https://registry.npmmirror.com
+              echo "安装 pnpm..."
+              npm install -g pnpm
+              pnpm config set registry https://registry.npmmirror.com
               
               echo "安装依赖..."
-              # 智能安装依赖逻辑
-              npm install || (rm -rf node_modules package-lock.json apps/admin/node_modules && npm install)
+              pnpm install
               
               echo "构建 Admin 项目..."
               export VITE_API_URL=https://api.bigfedcamp.com
               
-              if ! npm run build --filter @greatfedcamp/admin; then
+              if ! pnpm --filter @greatfedcamp/admin build; then
                  echo "Build failed! Cleaning and retrying..."
-                 rm -rf node_modules package-lock.json apps/admin/node_modules
-                 npm install
-                 npm run build --filter @greatfedcamp/admin
+                 rm -rf node_modules apps/admin/node_modules
+                 pnpm install --force
+                 pnpm --filter @greatfedcamp/admin build
               fi
               
               echo "准备 COS 上传环境..."
@@ -189,7 +189,7 @@ main:
                   -e PORT=3002 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="http://localhost:3002/api/auth" \
+                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
                   -e FRONTEND_URL="https://www.bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-api:latest
                 
@@ -207,7 +207,7 @@ main:
                   -e PORT=3001 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="http://localhost:3002/api/auth" \
+                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
                   -e NEXT_PUBLIC_API_URL="https://api.bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-web:latest
                 

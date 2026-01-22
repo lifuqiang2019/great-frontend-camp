@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN apk add --no-cache openssl && npm install -g pnpm
 
 WORKDIR /app
 
