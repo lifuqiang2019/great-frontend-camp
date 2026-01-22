@@ -20,7 +20,7 @@ RUN pnpm install
 COPY . .
 
 # Set env vars for build
-ENV NEXT_PUBLIC_API_URL=https://api.bigfedcamp.com
+ENV NEXT_PUBLIC_API_URL=http://api.bigfedcamp.com
 ENV BETTER_AUTH_SECRET=build_time_dummy_secret
 
 # Build the client

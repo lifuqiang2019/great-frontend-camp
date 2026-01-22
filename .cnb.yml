@@ -186,33 +186,33 @@ main:
                 docker rm machinemall-api || true
                 
                 docker run -d \
-                  --name machinemall-api \
+                  --name bigfedcamp-server \
                   --restart always \
-                  --network machinemall-net \
+                  --network bigfedcamp-net \
                   -p 3002:3002 \
                   -e PORT=3002 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
-                  -e FRONTEND_URL="https://www.bigfedcamp.com" \
+                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
+                  -e FRONTEND_URL="http://bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-api:latest
                 
                 # 部署 Web (Client)
                 echo "Deploying Web..."
                 docker pull \$DOCKER_NAMESPACE/machinemall-web:latest
-                docker stop machinemall-web || true
-                docker rm machinemall-web || true
+                docker stop bigfedcamp-web || true
+                docker rm bigfedcamp-web || true
                 
                 docker run -d \
-                  --name machinemall-web \
+                  --name bigfedcamp-web \
                   --restart always \
-                  --network machinemall-net \
+                  --network bigfedcamp-net \
                   -p 3001:3001 \
                   -e PORT=3001 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
-                  -e NEXT_PUBLIC_API_URL="https://api.bigfedcamp.com" \
+                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
+                  -e NEXT_PUBLIC_API_URL="http://api.bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-web:latest
                 
                 # 清理

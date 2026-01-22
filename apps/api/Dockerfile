@@ -20,6 +20,7 @@ RUN pnpm install
 COPY . .
 
 # Generate Prisma Client
+# Ensure we have the correct engines for alpine
 RUN cd apps/api && npx prisma generate
 
 # Build the server
