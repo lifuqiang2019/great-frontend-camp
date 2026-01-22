@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 
 # Install pnpm
-RUN apk add --no-cache openssl && npm install -g pnpm
+RUN npm install -g pnpm
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY . .
 RUN cd apps/api && npx prisma generate
 
 # Build the server
-RUN pnpm run build --filter @greatfedcamp/api
+RUN pnpm --filter @greatfedcamp/web build
 
 # Production stage
 FROM node:20-alpine
