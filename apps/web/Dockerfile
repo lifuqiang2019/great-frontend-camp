@@ -24,7 +24,7 @@ ENV NEXT_PUBLIC_API_URL=https://api.bigfedcamp.com
 ENV BETTER_AUTH_SECRET=build_time_dummy_secret
 
 # Build the client
-RUN pnpm --filter @greatfedcamp/web build
+RUN cd apps/web && pnpm run build
 
 # Production stage
 FROM node:20-slim

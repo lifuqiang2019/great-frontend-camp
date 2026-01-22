@@ -23,7 +23,7 @@ COPY . .
 RUN cd apps/api && npx prisma generate
 
 # Build the server
-RUN pnpm --filter @greatfedcamp/web build
+RUN cd apps/api && pnpm run build
 
 # Production stage
 FROM node:20-alpine

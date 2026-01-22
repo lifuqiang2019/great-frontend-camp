@@ -1,0 +1,10 @@
+node_modules
+.git
+.next
+dist
+.DS_Store
+*.log
+apps/*/node_modules
+apps/*/.next
+apps/*/dist
+apps/*/.turbo
