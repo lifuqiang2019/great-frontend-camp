@@ -30,8 +30,10 @@ export async function getAuth() {
   };
 
   // Add proxy support for local development (Gmail SMTP requires proxy in some regions)
-  const proxyHost = process.env.PROXY_HOST || "127.0.0.1";
-  const proxyPort = process.env.PROXY_PORT || "7890";
+  // Only use proxy if PROXY_HOST is explicitly defined in env (e.g. for local dev)
+  // In production (Docker), we usually don't set PROXY_HOST, so it skips this.
+  const proxyHost = process.env.PROXY_HOST;
+  const proxyPort = process.env.PROXY_PORT;
   
   if (proxyHost && proxyPort) {
      // Switch to HTTP Proxy (HttpsProxyAgent) as it proved stable in diagnosis

@@ -12,7 +12,7 @@ interface MainPageProps {
   initialQuestionId?: string;
 }
 
-export default function MainPage({ initialTab = '首页', initialQuestionId }: MainPageProps) {
+export default function MainPage({ initialTab = '面试题库', initialQuestionId }: MainPageProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
   const [communityKey, setCommunityKey] = useState(0);
@@ -72,9 +72,9 @@ export default function MainPage({ initialTab = '首页', initialQuestionId }: M
   };
 
   const navItems = [
-    { name: '首页' },
     { name: '面试题库' },
     { name: '同学营活动', hot: true }
+    // { name: '首页' },
   ];
 
   return (

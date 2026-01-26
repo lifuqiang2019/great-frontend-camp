@@ -12,6 +12,7 @@ async function bootstrap() {
     "http://localhost:5175",
     "https://admin.bigfedcamp.com",
     "https://www.bigfedcamp.com",
+    "https://bigfedcamp.com",
     "http://bigfedcamp.com",
     "http://www.bigfedcamp.com",
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : []),
