@@ -21,6 +21,7 @@ COPY . .
 
 # Set env vars for build
 ENV NEXT_PUBLIC_API_URL=https://api.bigfedcamp.com
+ENV NEXT_PUBLIC_BETTER_AUTH_URL=https://api.bigfedcamp.com/api/auth
 ENV BETTER_AUTH_SECRET=build_time_dummy_secret
 
 # Build the client
