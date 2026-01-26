@@ -70,6 +70,9 @@ docker run -d --name bigfedcamp-web \
   --network bigfedcamp-net \
   -p 3001:3001 \
   -e PORT=3001 \
+  -e DATABASE_URL="$DATABASE_URL" \
+  -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
   -e NEXT_PUBLIC_API_URL="https://api.bigfedcamp.com" \
   $CLIENT_IMAGE
 

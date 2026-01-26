@@ -208,12 +208,12 @@ main:
                   -e PORT=3002 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
-                  -e FRONTEND_URL="http://bigfedcamp.com" \
+                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
+                  -e FRONTEND_URL="https://bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-api:latest
                 
                 # 部署 Web (Client)
-                echo "Deploying Web..."
+                echo "Deploying Client..."
                 docker pull \$DOCKER_NAMESPACE/machinemall-web:latest
                 docker stop bigfedcamp-web || true
                 docker rm bigfedcamp-web || true
@@ -226,8 +226,8 @@ main:
                   -e PORT=3001 \
                   -e DATABASE_URL="$DATABASE_URL" \
                   -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
-                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
-                  -e NEXT_PUBLIC_API_URL="http://api.bigfedcamp.com" \
+                  -e BETTER_AUTH_URL="https://api.bigfedcamp.com/api/auth" \
+                  -e NEXT_PUBLIC_API_URL="https://api.bigfedcamp.com" \
                   \$DOCKER_NAMESPACE/machinemall-web:latest
                 
                 # 清理
