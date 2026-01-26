@@ -1,0 +1,236 @@
+# .cnb.yml
+# 核心构建配置文件
+# 文档参考: https://cnb.cool
+
+# 触发分支
+main:
+  push:
+    - services:
+        - docker
+      imports: https://cnb.cool/dingxin.cloud/MySecret/-/blob/main/env.prod.yml
+      env:
+        # 引用在 CNB 设置中配置的 Secrets
+        # 请确保在 CNB 项目设置 -> 环境变量/Secrets 中配置以下变量:
+        # DOCKER_USERNAME: Docker Hub 用户名
+        # DOCKER_PASSWORD: Docker Hub 密码
+        # REMOTE_HOST: 部署服务器 IP
+        # REMOTE_USER: 部署服务器登录用户 (如 root)
+        # SSH_PRIVATE_KEY: 部署服务器 SSH 私钥
+        # COS_SECRET_ID: 腾讯云 COS SecretId
+        # COS_SECRET_KEY: 腾讯云 COS SecretKey
+        # COS_BUCKET: COS 存储桶名称
+        # COS_REGION: COS 地域
+        # DATABASE_URL: MongoDB 连接字符串
+        # BETTER_AUTH_SECRET: Auth 密钥
+        
+      stages:
+        # ---------------------------------------------------------------------
+        # 1. Web (Client) 构建与部署
+        # ---------------------------------------------------------------------
+        - name: Build & Push Web
+          script:
+            - echo "开始构建 Web 镜像..."
+            - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            - export DOCKER_NAMESPACE=$(echo $DOCKER_USERNAME | cut -d@ -f1)
+            - docker build -f apps/web/Dockerfile -t $DOCKER_NAMESPACE/machinemall-web:latest .
+            - docker push $DOCKER_NAMESPACE/machinemall-web:latest
+
+        # ---------------------------------------------------------------------
+        # 2. API (Server) 构建与部署
+        # ---------------------------------------------------------------------
+        - name: Build & Push API
+          script:
+            - echo "开始构建 API 镜像..."
+            - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            - export DOCKER_NAMESPACE=$(echo $DOCKER_USERNAME | cut -d@ -f1)
+            - docker build -f apps/api/Dockerfile -t $DOCKER_NAMESPACE/machinemall-api:latest .
+            - docker push $DOCKER_NAMESPACE/machinemall-api:latest
+
+        # ---------------------------------------------------------------------
+        # 3. Admin (Static) 构建与上传 COS
+        # ---------------------------------------------------------------------
+        - name: Build & Deploy Admin to COS
+          image: node:20
+          script:
+            - |
+              set -e
+              # 1. 设置镜像源
+              echo "安装 pnpm..."
+              npm install -g pnpm
+              pnpm config set registry https://registry.npmmirror.com
+              
+              # 2. 智能安装依赖
+              echo "Installing dependencies..."
+              # 先尝试普通安装（利用缓存）
+              pnpm install
+              
+              # 3. 尝试构建，如果捕捉到错误，则触发自愈逻辑
+              echo "Building Admin project..."
+              export VITE_API_URL=https://api.bigfedcamp.com
+              
+              if ! pnpm --filter @greatfedcamp/admin build; then
+                 echo "Build failed! Suspecting platform-specific binary issue."
+                 echo "Cleaning node_modules and forcing reinstall..."
+                 
+                 # 关键：清理所有可能的缓存干扰
+                 rm -rf node_modules pnpm-lock.yaml
+                 # 如果有子包的 node_modules 也要清理（保险起见）
+                 rm -rf apps/admin/node_modules
+                 
+                 # 重新安装（这次会在 Linux 环境下生成全新的依赖树）
+                 pnpm install
+                 
+                 # 再次尝试构建
+                 echo "Retrying build..."
+                 pnpm --filter @greatfedcamp/admin build
+              fi
+              
+              # 4. 准备 COS 上传环境
+              echo "Preparing COS upload..."
+              mkdir -p /tmp/cos-upload
+              if [ ! -d "/tmp/cos-upload/node_modules" ]; then
+                  npm install --prefix /tmp/cos-upload cos-nodejs-sdk-v5
+              fi
+              
+              echo "上传到 COS..."
+              export NODE_PATH=/tmp/cos-upload/node_modules
+              export COS_BUCKET=$COS_BUCKET
+              export COS_REGION=$COS_REGION
+              export COS_SECRET_ID=$COS_SECRET_ID
+              export COS_SECRET_KEY=$COS_SECRET_KEY
+              
+              node -e '
+              const COS = require("cos-nodejs-sdk-v5");
+              const fs = require("fs");
+              const path = require("path");
+
+              const bucket = process.env.COS_BUCKET;
+              const region = process.env.COS_REGION;
+              const secretId = process.env.COS_SECRET_ID;
+              const secretKey = process.env.COS_SECRET_KEY;
+
+              if (!bucket || !region || !secretId || !secretKey) {
+                console.error("Error: Missing COS environment variables.");
+                process.exit(1);
+              }
+
+              const cos = new COS({ SecretId: secretId, SecretKey: secretKey });
+              
+              const distDir = path.resolve("apps/admin/dist");
+
+              function uploadDir(dir, prefix = "") {
+                if (!fs.existsSync(dir)) {
+                   console.error("Error: Dist directory not found at " + dir);
+                   process.exit(1);
+                }
+
+                const files = fs.readdirSync(dir);
+
+                files.forEach(file => {
+                  const filePath = path.join(dir, file);
+                  const stat = fs.statSync(filePath);
+                  const key = path.posix.join(prefix, file);
+
+                  if (stat.isDirectory()) {
+                    uploadDir(filePath, key);
+                  } else {
+                    let cacheControl = "public, max-age=31536000, immutable";
+                    if (file === "index.html") {
+                      cacheControl = "no-cache";
+                    }
+
+                    console.log(`Uploading ${key}...`);
+                    cos.putObject({
+                      Bucket: bucket,
+                      Region: region,
+                      Key: key,
+                      Body: fs.createReadStream(filePath),
+                      Headers: { "Cache-Control": cacheControl }
+                    }, (err, data) => {
+                      if (err) {
+                        console.error(`Failed to upload ${key}:`, err);
+                        process.exit(1);
+                      } else {
+                        console.log(`Success: ${key}`);
+                      }
+                    });
+                  }
+                });
+              }
+
+              uploadDir(distDir);
+              '
+
+        # ---------------------------------------------------------------------
+        # 4. 部署 Docker 容器到服务器
+        # ---------------------------------------------------------------------
+        - name: Deploy Containers via SSH
+          image: alpine:latest
+          script:
+            - echo "开始部署容器到服务器..."
+            - apk add --no-cache openssh-client
+            - mkdir -p ~/.ssh
+            - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            - chmod 600 ~/.ssh/id_rsa
+            - ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
+            - |
+              ssh $REMOTE_USER@$REMOTE_HOST << EOF
+                set -e
+                
+                # 显式导出环境变量，供后续命令使用
+                export DATABASE_URL='$DATABASE_URL'
+                export BETTER_AUTH_SECRET='$BETTER_AUTH_SECRET'
+                
+                # 检查/安装 Docker
+                if ! command -v docker &> /dev/null; then
+                    curl -fsSL https://get.docker.com | sh
+                    systemctl start docker
+                fi
+                
+                # 登录 Docker Hub
+                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                export DOCKER_NAMESPACE=\$(echo $DOCKER_USERNAME | cut -d@ -f1)
+                
+                # 创建网络
+                docker network create machinemall-net || true
+                
+                # 部署 API (Server)
+                echo "Deploying API..."
+                docker pull \$DOCKER_NAMESPACE/machinemall-api:latest
+                docker stop machinemall-api || true
+                docker rm machinemall-api || true
+                
+                docker run -d \
+                  --name bigfedcamp-server \
+                  --restart always \
+                  --network bigfedcamp-net \
+                  -p 3002:3002 \
+                  -e PORT=3002 \
+                  -e DATABASE_URL="$DATABASE_URL" \
+                  -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
+                  -e FRONTEND_URL="http://bigfedcamp.com" \
+                  \$DOCKER_NAMESPACE/machinemall-api:latest
+                
+                # 部署 Web (Client)
+                echo "Deploying Web..."
+                docker pull \$DOCKER_NAMESPACE/machinemall-web:latest
+                docker stop bigfedcamp-web || true
+                docker rm bigfedcamp-web || true
+                
+                docker run -d \
+                  --name bigfedcamp-web \
+                  --restart always \
+                  --network bigfedcamp-net \
+                  -p 3001:3001 \
+                  -e PORT=3001 \
+                  -e DATABASE_URL="$DATABASE_URL" \
+                  -e BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+                  -e BETTER_AUTH_URL="http://api.bigfedcamp.com/api/auth" \
+                  -e NEXT_PUBLIC_API_URL="http://api.bigfedcamp.com" \
+                  \$DOCKER_NAMESPACE/machinemall-web:latest
+                
+                # 清理
+                docker image prune -f
+                echo "Deployment Success!"
+              EOF

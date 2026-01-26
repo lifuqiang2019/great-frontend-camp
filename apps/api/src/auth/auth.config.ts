@@ -100,41 +100,17 @@ export async function getAuth() {
                 <p>Please click the button below to verify your email address:</p>
                 <a href="${verificationUrlWithRedirect}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email</a>
                 <p>This link will expire in 24 hours.</p>
+                <p style="font-size: 12px; color: #666;">If you didn't create an account, you can ignore this email.</p>
               </div>
             `,
           });
-          console.log(`Email sent successfully! Message ID: ${info.messageId}`);
+          console.log("Email sent: ", info.messageId);
         } catch (error) {
-          console.error("❌ Error sending email:", error);
-          
-          // ROLLBACK: Delete the user if email fails
-          console.log("⚠️  Attempting to rollback user creation...");
-          try {
-            await prisma.user.delete({
-              where: { id: user.id }
-            });
-            console.log("✅ User rolled back (deleted) successfully.");
-          } catch (deleteError) {
-            console.error("❌ Failed to rollback user:", deleteError);
-          }
-
-          // Re-throw error to let Better Auth (and the frontend) know something went wrong
-          throw new Error("Failed to send verification email. Registration aborted.");
+          console.error("Error sending email: ", error);
         }
-        console.log("📧 ========================================");
+        console.log("======================================== 📧");
       },
     },
-    secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL,
-    trustedOrigins: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://admin.bigfedcamp.com",
-      "https://www.bigfedcamp.com",
-      "http://bigfedcamp.com",
-      "http://www.bigfedcamp.com",
-      ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : []),
-    ],
   });
 
   return authInstance;

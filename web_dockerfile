@@ -1,0 +1,43 @@
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Copy root package files and workspace definitions
+COPY package*.json ./
+COPY apps/server/package.json apps/server/
+COPY apps/client/package.json apps/client/
+COPY apps/admin/package.json apps/admin/
+
+# Install dependencies
+RUN npm config set registry https://registry.npmmirror.com && \
+    rm -rf package-lock.json node_modules && \
+    npm install
+
+# Copy source code
+COPY . .
+
+# Build the client
+# Set dummy secret for build time (Better Auth requires it)
+ENV BETTER_AUTH_SECRET=build_time_dummy_secret
+ENV NEXT_PUBLIC_API_URL=http://localhost:3000
+RUN npm run build --workspace=clonemachemall
+
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy necessary files
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/apps/client ./apps/client
+
+WORKDIR /app/apps/client
+
+# Set port for Next.js
+ENV PORT=8001
+
+# Expose port
+EXPOSE 8001
+
+# Start the application
+CMD ["npm", "start"]

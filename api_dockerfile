@@ -1,0 +1,49 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy root package files and workspace definitions
+COPY package*.json ./
+COPY apps/server/package.json apps/server/
+COPY apps/client/package.json apps/client/
+COPY apps/admin/package.json apps/admin/
+
+# Install dependencies
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install
+
+# Copy source code
+COPY . .
+
+# Build the server
+RUN npm run build --workspace=server
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy necessary files
+# Copy node_modules from builder to ensure all dependencies are present
+# We need to copy both root node_modules and app-specific node_modules (if any)
+# Using a more robust copy strategy for Monorepo structure
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+# Try to copy nested node_modules if they exist (ignore error if not)
+COPY --from=builder /app/apps/server/node_modules ./apps/server/node_modules
+
+COPY --from=builder /app/apps/server/dist ./apps/server/dist
+COPY --from=builder /app/apps/server/package.json ./apps/server/
+COPY --from=builder /app/apps/server/.env ./apps/server/
+
+# Explicitly install production dependencies for server to ensure nothing is missed
+# RUN cd apps/server && npm install --omit=dev
+
+# Expose port
+ENV PORT=8002
+EXPOSE 8002
+
+# Start the application
+CMD ["node", "apps/server/dist/main"]

@@ -7,7 +7,7 @@ const dynamicImport = new Function("specifier", "return import(specifier)");
 
 @Controller("api/auth")
 export class AuthController {
-  @All("*")
+  @All("*splat")
   async handleAuth(@Req() req: Request, @Res() res: Response) {
     const auth = await getAuth();
     const { toNodeHandler } = await dynamicImport("better-auth/node");
