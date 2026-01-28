@@ -176,14 +176,21 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
                   onClick={(e) => {
                     e.preventDefault();
                     if (item.name === '面试题库') {
-                      if (activeTab === '面试题库' && !currentQuestionId) {
+                      if (activeTab === '面试题库') {
+                        // If already on this tab, maybe reset/refresh?
+                        // For now just do nothing or maybe scroll to top if implemented
                         setCommunityKey(prev => prev + 1);
+                        setCurrentQuestionId(undefined); // Reset selection on re-click
+                        handleTabChange('面试题库', '/');
+                      } else {
+                        // Switching back to this tab
+                        const targetUrl = currentQuestionId ? `/questions/${currentQuestionId}` : '/';
+                        handleTabChange('面试题库', targetUrl);
                       }
-                      handleTabChange('面试题库', '/');
                     } else if (item.name === '同学营活动') {
                       handleTabChange('同学营活动', '/camp');
                     } else if (item.name === '首页') {
-                       router.push('/');
+                      router.push('/');
                     }
                   }}
                 >
@@ -300,6 +307,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
             onLoginRequest={() => setIsLoginModalOpen(true)} 
             viewMode="default"
             initialQuestionId={currentQuestionId}
+            onQuestionSelect={(id) => setCurrentQuestionId(id || undefined)}
           />
         </div>
         
