@@ -169,6 +169,7 @@ interface CodingCommunityProps {
   viewMode?: 'default' | 'favorites' | 'favorites-only';
   onCloseFavorites?: () => void;
   initialQuestionId?: string;
+  onQuestionSelect?: (id: string | null) => void;
 }
 
 const QuestionListItem = ({ 
@@ -212,7 +213,13 @@ const QuestionListItem = ({
   );
 };
 
-export default function CodingCommunity({ onLoginRequest, viewMode = 'default', onCloseFavorites, initialQuestionId }: CodingCommunityProps) {
+export default function CodingCommunity({ 
+  onLoginRequest, 
+  viewMode = 'default', 
+  onCloseFavorites, 
+  initialQuestionId,
+  onQuestionSelect
+}: CodingCommunityProps) {
   const { data: session } = useSession();
   const [hotLimit, setHotLimit] = useState(10);
   const [hotExpandedLimit, setHotExpandedLimit] = useState(20);
@@ -590,6 +597,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
 
   const selectQuestion = useCallback(async (item: QuestionItem, updateUrl = true) => {
     setSelectedQuestion(item);
+    if (onQuestionSelect) onQuestionSelect(item.id);
     setActiveTab('solution');
     
     if (updateUrl) {
@@ -636,6 +644,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
         // even if the component doesn't fully remount or state is preserved
         if (selectedQuestion) {
           setSelectedQuestion(null);
+          if (onQuestionSelect) onQuestionSelect(null);
         }
       }
     }
@@ -661,6 +670,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
         // If we are back at root, deselect
         if (selectedQuestion) {
           setSelectedQuestion(null);
+          if (onQuestionSelect) onQuestionSelect(null);
         }
       }
     };
