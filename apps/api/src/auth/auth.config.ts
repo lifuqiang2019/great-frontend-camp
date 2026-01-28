@@ -111,6 +111,23 @@ export async function getAuth() {
         console.log("======================================== 📧");
       },
     },
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID as string,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      },
+    },
+    trustedOrigins: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "https://admin.bigfedcamp.com",
+      "https://www.bigfedcamp.com",
+      "https://bigfedcamp.com",
+      "http://bigfedcamp.com",
+      "http://www.bigfedcamp.com",
+    ],
   });
 
   return authInstance;

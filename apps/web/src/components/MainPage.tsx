@@ -11,9 +11,10 @@ import { useSession, signOut } from '@/lib/auth-client';
 interface MainPageProps {
   initialTab?: string;
   initialQuestionId?: string;
+  serverGreetingConfig?: Record<string, string>;
 }
 
-export default function MainPage({ initialTab = '面试题库', initialQuestionId }: MainPageProps) {
+export default function MainPage({ initialTab = '面试题库', initialQuestionId, serverGreetingConfig }: MainPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
@@ -64,9 +65,15 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     setCurrentQuestionId(initialQuestionId);
   }, [initialQuestionId]);
 
-  const [greetingConfig, setGreetingConfig] = useState<Record<string, string>>({});
+  const [greetingConfig, setGreetingConfig] = useState<Record<string, string>>(serverGreetingConfig || {});
 
   useEffect(() => {
+    // If we already have server config, we might skip fetching or fetch to update
+    if (serverGreetingConfig && Object.keys(serverGreetingConfig).length > 0) {
+       // Optional: Still fetch to ensure latest client-side if needed, but for now we can skip or just update silently
+       // Let's keep fetching to be safe but the initial render is already covered
+    }
+    
     const fetchConfig = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/system/config`);
@@ -176,14 +183,21 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
                   onClick={(e) => {
                     e.preventDefault();
                     if (item.name === '面试题库') {
-                      if (activeTab === '面试题库' && !currentQuestionId) {
+                      if (activeTab === '面试题库') {
+                        // If already on this tab, maybe reset/refresh?
+                        // For now just do nothing or maybe scroll to top if implemented
                         setCommunityKey(prev => prev + 1);
+                        setCurrentQuestionId(undefined); // Reset selection on re-click
+                        handleTabChange('面试题库', '/');
+                      } else {
+                        // Switching back to this tab
+                        const targetUrl = currentQuestionId ? `/questions/${currentQuestionId}` : '/';
+                        handleTabChange('面试题库', targetUrl);
                       }
-                      handleTabChange('面试题库', '/');
                     } else if (item.name === '同学营活动') {
                       handleTabChange('同学营活动', '/camp');
                     } else if (item.name === '首页') {
-                       router.push('/');
+                      router.push('/');
                     }
                   }}
                 >
@@ -300,6 +314,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
             onLoginRequest={() => setIsLoginModalOpen(true)} 
             viewMode="default"
             initialQuestionId={currentQuestionId}
+            onQuestionSelect={(id) => setCurrentQuestionId(id || undefined)}
           />
         </div>
         
