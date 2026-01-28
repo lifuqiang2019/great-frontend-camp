@@ -3,6 +3,20 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 
+// Try to set global proxy for Node.js fetch (used by better-auth)
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { setGlobalDispatcher, ProxyAgent } = require("undici");
+  if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+    const proxyUrl = `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+    const dispatcher = new ProxyAgent(proxyUrl);
+    setGlobalDispatcher(dispatcher);
+    console.log(`Global proxy set to ${proxyUrl}`);
+  }
+} catch (error) {
+  console.warn("Failed to set global proxy with undici. If you are behind a proxy, GitHub login might fail.", error);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = [
