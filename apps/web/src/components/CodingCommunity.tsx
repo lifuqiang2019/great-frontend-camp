@@ -999,7 +999,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
               </div>
               
               {/* Top Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 shrink-0">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 mb-6 shrink-0">
                 {hotQuestions.slice(0, 5).map((item, index) => {
                   const isTop1 = index === 0;
                   const isTop2 = index === 1;
