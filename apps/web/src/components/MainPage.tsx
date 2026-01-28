@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import CodingCommunity from '@/components/CodingCommunity';
 import StudentCamp from '@/components/StudentCamp';
 import Home from '@/components/Home';
@@ -13,6 +14,7 @@ interface MainPageProps {
 }
 
 export default function MainPage({ initialTab = '面试题库', initialQuestionId }: MainPageProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
   const [communityKey, setCommunityKey] = useState(0);
@@ -22,9 +24,66 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
   const { data: session } = useSession();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set([initialTab]));
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setVisitedTabs(prev => new Set(prev).add(initialTab));
+  }, [initialTab]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      // Simple logic to sync tab with URL if needed
+      // Ideally, we parse the URL path
+      const path = window.location.pathname;
+      if (path === '/camp') {
+        setActiveTab('同学营活动');
+        setVisitedTabs(prev => new Set(prev).add('同学营活动'));
+      } else if (path === '/' || path.startsWith('/questions') || path.startsWith('/question/')) {
+        setActiveTab('面试题库');
+        setVisitedTabs(prev => new Set(prev).add('面试题库'));
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = (tabName: string, url: string) => {
+    if (tabName === activeTab) return;
+    
+    // Update State
+    setActiveTab(tabName);
+    setVisitedTabs(prev => new Set(prev).add(tabName));
+    
+    // Update URL without full reload
+    window.history.pushState({}, '', url);
+  };
+
   useEffect(() => {
     setCurrentQuestionId(initialQuestionId);
   }, [initialQuestionId]);
+
+  const [greetingConfig, setGreetingConfig] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/system/config`);
+        if (res.ok) {
+          const data = await res.json();
+          const configMap = data.reduce((acc: any, item: any) => {
+            acc[item.key] = item.value;
+            return acc;
+          }, {});
+          setGreetingConfig(configMap);
+        }
+      } catch (e) {
+        console.error("Failed to fetch system config", e);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -37,12 +96,15 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
   const getGreeting = (date: Date) => {
     const hour = date.getHours();
-    if (hour >= 0 && hour < 7) return { text: '夜深露重，愿你好梦相伴', icon: '🌙' };
-    if (hour >= 7 && hour < 9) return { text: '朝阳初升，今天的你也很棒', icon: '🌅' };
-    if (hour >= 9 && hour < 12) return { text: '阳光正好，用代码编织未来', icon: '☀️' };
-    if (hour >= 12 && hour < 14) return { text: '茶余饭后，给自己一段放空时光', icon: '☕' };
-    if (hour >= 14 && hour < 18) return { text: '午后静谧，灵感在指尖流淌', icon: '🚀' };
-    return { text: '卸下疲惫，享受属于你的宁静夜晚', icon: '🌃' };
+    let text = '';
+    if (hour >= 0 && hour < 7) text = greetingConfig['greeting_0_7'] || '夜深露重，愿你好梦相伴';
+    else if (hour >= 7 && hour < 9) text = greetingConfig['greeting_7_9'] || '朝阳初升，今天的你也很棒';
+    else if (hour >= 9 && hour < 12) text = greetingConfig['greeting_9_12'] || '阳光正好，用代码编织未来';
+    else if (hour >= 12 && hour < 14) text = greetingConfig['greeting_12_14'] || '茶余饭后，给自己一段放空时光';
+    else if (hour >= 14 && hour < 18) text = greetingConfig['greeting_14_18'] || '午后静谧，灵感在指尖流淌';
+    else text = greetingConfig['greeting_18_24'] || '卸下疲惫，享受属于你的宁静夜晚';
+    
+    return { text };
   };
 
   useEffect(() => {
@@ -83,7 +145,10 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
       <nav className="bg-primary-900 shadow-subtle py-[0.8rem] flex-shrink-0 border-b border-primary-800">
         <div className="max-w-full m-0 px-10 flex items-center justify-between">
           <div className="flex items-center min-w-[100px] mr-10">
-            <div className="flex items-center gap-3 cursor-pointer group">
+            <div 
+              className="flex items-center gap-3 cursor-pointer group"
+              onClick={() => router.push('/')}
+            >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-gold via-[#eac14d] to-[#b8860b] flex items-center justify-center shadow-lg shadow-black/20 border border-white/10 transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-primary-900">
                   <path d="M16 18l6-6-6-6" />
@@ -111,15 +176,14 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
                   onClick={(e) => {
                     e.preventDefault();
                     if (item.name === '面试题库') {
-                      setActiveTab(item.name);
-                      setCurrentQuestionId(undefined);
-                      setCommunityKey(prev => prev + 1);
-                      window.history.pushState(null, '', '/');
-                    } else {
-                      setActiveTab(item.name);
-                      if (item.name === '首页') {
-                         window.history.pushState(null, '', '/');
+                      if (activeTab === '面试题库' && !currentQuestionId) {
+                        setCommunityKey(prev => prev + 1);
                       }
+                      handleTabChange('面试题库', '/');
+                    } else if (item.name === '同学营活动') {
+                      handleTabChange('同学营活动', '/camp');
+                    } else if (item.name === '首页') {
+                       router.push('/');
                     }
                   }}
                 >
@@ -138,7 +202,6 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
           {currentTime && (
              <div className="mr-6 hidden md:flex items-center justify-center h-full animate-fade-in select-none">
                 <div className="flex items-center gap-2 text-[14px] text-primary-100 font-bold leading-none tracking-wide">
-                  <span>{getGreeting(currentTime).icon}</span>
                   <span>{getGreeting(currentTime).text}</span>
                 </div>
              </div>
@@ -231,23 +294,22 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
       {/* Main Content */}
       <main className="flex-1 w-full m-0 p-0 overflow-hidden flex flex-col">
-        {activeTab === '首页' ? (
-          <Home onChangeTab={setActiveTab} />
-        ) : activeTab === '面试题库' ? (
+        <div className={`h-full w-full ${activeTab === '面试题库' ? 'block' : 'hidden'}`}>
           <CodingCommunity 
             key={communityKey}
             onLoginRequest={() => setIsLoginModalOpen(true)} 
             viewMode="default"
             initialQuestionId={currentQuestionId}
           />
-        ) : activeTab === '同学营活动' ? (
-          <StudentCamp />
-        ) : (
-          <div className="p-5 max-w-[1200px] mx-auto w-full flex-1 overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">{activeTab}</h2>
-            <p className="text-gray-600">正在开发中...</p>
-          </div>
-        )}
+        </div>
+        
+        <div className={`h-full w-full ${activeTab === '同学营活动' ? 'block' : 'hidden'}`}>
+          {(visitedTabs.has('同学营活动') || activeTab === '同学营活动') && (
+            <StudentCamp />
+          )}
+        </div>
+
+        {activeTab === '首页' && <Home onChangeTab={setActiveTab} />}
       </main>
 
       {/* Login Modal */}

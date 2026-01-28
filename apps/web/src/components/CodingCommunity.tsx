@@ -175,63 +175,35 @@ const QuestionListItem = ({
   item, 
   index, 
   isSelected,
-  onSelect
+  onSelect,
+  isHot = false
 }: { 
   item: QuestionItem; 
   index: number; 
   isSelected: boolean;
   onSelect: (item: QuestionItem) => void;
+  isHot?: boolean;
 }) => {
-  const [isTruncated, setIsTruncated] = useState(true);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsTruncated(false);
-  };
-
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setIsTruncated(true);
-    }, 500); // Match transition duration
-  };
-
   return (
     <div className="relative mb-0.5">
       <div
         onClick={() => onSelect(item)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className={`group w-full p-2 rounded-md cursor-pointer text-sm transition-[max-height,background-color] duration-500 ease-in-out overflow-hidden hover:max-h-[200px] ${
+        className={`group w-full p-2 rounded-md cursor-pointer text-sm transition-colors duration-200 ease-in-out overflow-hidden ${
           isSelected 
-            ? 'text-primary-900 bg-primary-100 font-medium max-h-10' 
-            : 'text-primary-500 hover:text-primary-900 bg-transparent max-h-10'
+            ? 'text-primary-900 bg-primary-100 font-medium' 
+            : 'text-primary-500 hover:text-primary-900 hover:bg-primary-50 bg-transparent'
         }`}
       >
         <div className="flex items-start gap-2">
           <span className={`text-xs font-mono min-w-[1rem] shrink-0 pt-0.5 text-center ${
-            index === 0 ? 'text-[#FF2D55] font-black italic text-sm scale-110 drop-shadow-sm' :
-            index === 1 ? 'text-[#FF9500] font-extrabold italic' :
-            index === 2 ? 'text-[#FFCC00] font-bold italic' :
+            isHot && index === 0 ? 'text-[#FF2D55] font-black italic text-sm scale-110 drop-shadow-sm' :
+            isHot && index === 1 ? 'text-[#FF9500] font-extrabold italic' :
+            isHot && index === 2 ? 'text-[#FFCC00] font-bold italic' :
             'text-primary-300'
           }`}>
             {index + 1}
           </span>
-          <div 
-            className="flex-1 leading-relaxed overflow-hidden"
-            style={{
-              display: '-webkit-box',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: isTruncated ? 1 : 20,
-              wordBreak: 'break-all'
-            }}
-          >
+          <div className="flex-1 leading-relaxed line-clamp-1 break-all">
             {item.title}
           </div>
         </div>
@@ -508,6 +480,8 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
         ]);
         setQuestions(questionsData);
         setCategories(categoriesData);
+        // Expand all categories by default, including 'hot'
+        setExpandedCategoryIds(['hot', ...categoriesData.map(c => c.id)]);
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -581,8 +555,8 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
   const hotQuestions = useMemo(() => {
     return [...questions]
       .sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0))
-      .slice(0, hotExpandedLimit);
-  }, [questions, hotExpandedLimit]);
+      .slice(0, 20);
+  }, [questions]);
 
   // Video Preview Component
   const VideoPreview = ({ url, title }: { url: string; title: string }) => {
@@ -619,7 +593,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     setActiveTab('solution');
     
     if (updateUrl) {
-      window.history.pushState({}, '', `/question/${item.id}`);
+      window.history.pushState({}, '', `/questions/${item.id}`);
     }
     
     try {
@@ -674,7 +648,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
       const path = window.location.pathname;
       
       // Check if we are on a question page
-      const match = path.match(/\/question\/([^\/]+)/);
+      const match = path.match(/\/questions\/([^\/]+)/);
       if (match) {
         const id = match[1];
         if (questions.length > 0) {
@@ -793,30 +767,16 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                   </div>
                   
                   <div className="px-1 mt-1 relative">
-                    {hotQuestions.slice(0, isHotExpanded ? hotExpandedLimit : hotLimit).map((item, index) => (
+                    {hotQuestions.map((item, index) => (
                       <QuestionListItem 
                         key={`hot-${item.id}`}
                         item={item} 
                         index={index} 
                         isSelected={selectedQuestion?.id === item.id}
                         onSelect={selectQuestion}
+                        isHot={true}
                       />
                     ))}
-                    
-                    <div 
-                      onClick={() => setIsHotExpanded(!isHotExpanded)}
-                      className="mx-auto w-28 my-2 py-1 text-xs text-center font-medium text-primary-400 hover:text-primary-600 bg-transparent hover:bg-primary-50 rounded-full border border-dashed border-primary-200 hover:border-primary-300 cursor-pointer flex items-center justify-center gap-1 transition-all group"
-                    >
-                      <span>{isHotExpanded ? '收起热门题' : '更多热门题'}</span>
-                      <svg 
-                        className={`w-3 h-3 transition-transform duration-200 ${isHotExpanded ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
 
@@ -850,7 +810,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                       </div>
                       
                       {isExpanded && (
-                        <div className="ml-4 pl-3 mt-1">
+                        <div className="px-1 mt-1 relative">
                           {categoryQuestions.map((item, index) => (
                             <QuestionListItem 
                               key={item.id} 
@@ -880,7 +840,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                  <button 
                   onClick={() => {
                     setSelectedQuestion(null);
-                    window.history.pushState({}, '', '/');
+                    window.history.pushState({}, '', '/questions');
                   }}
                   className="flex items-center justify-center w-8 h-8 rounded-full text-primary-400 hover:text-primary-700 hover:bg-primary-50 transition-colors"
                   title="返回首页"
@@ -1030,7 +990,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
               <p className="text-primary-500 font-medium text-sm">精选面试真题，助你斩获 Offer</p>
             </div>
 
-            <div className="flex-1 min-h-0 w-full max-w-7xl mx-auto flex flex-col min-w-[1024px] overflow-y-auto custom-scrollbar pr-2">
+            <div className="flex-1 min-h-0 w-full max-w-full mx-auto flex flex-col overflow-y-auto scrollbar-hide px-4">
               <div className="flex items-center gap-2 mb-4 shrink-0">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white">
                    <span className="text-sm">🔥</span>
@@ -1039,7 +999,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
               </div>
               
               {/* Top Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 shrink-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 shrink-0">
                 {hotQuestions.slice(0, 5).map((item, index) => {
                   const isTop1 = index === 0;
                   const isTop2 = index === 1;
@@ -1053,10 +1013,10 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                     onMouseLeave={() => setHoveredQuestionId(null)}
                     className={`
                       relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between h-[280px]
-                      ${isTop1 ? 'md:col-span-2 md:row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50 hover:-translate-y-0.5 h-[580px]' : ''}
-                      ${isTop2 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40 hover:-translate-y-0.5' : ''}
-                      ${isTop3 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40 hover:-translate-y-0.5' : ''}
-                      ${index > 2 ? 'bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md hover:-translate-y-0.5' : ''}
+                      ${isTop1 ? 'md:col-span-2 md:row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50 h-[580px]' : ''}
+                      ${isTop2 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40' : ''}
+                      ${isTop3 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40' : ''}
+                      ${index > 2 ? 'bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md' : ''}
                     `}
                   >
 
@@ -1145,9 +1105,9 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                         </div>
                       )}
                       
-                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-black/5 shrink-0">
-                         <div className="flex items-center gap-2">
-                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-black/5 shrink-0 min-w-0">
+                         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate ${
                              isTop1 ? 'bg-red-50 border-red-100 text-red-600' : 
                              isTop2 ? 'bg-orange-50 border-orange-100 text-orange-600' :
                              isTop3 ? 'bg-yellow-50 border-yellow-100 text-yellow-700' :
@@ -1155,7 +1115,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                            }`}>
                              {categories.find(c => c.id === item.categoryId)?.name || '未分类'}
                            </span>
-                           <span className="text-primary-400 text-[10px] flex items-center gap-0.5">
+                           <span className="text-primary-400 text-[10px] flex items-center gap-0.5 shrink-0">
                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1164,7 +1124,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                            </span>
                          </div>
                          
-                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shrink-0 ${
                             isTop1 ? 'bg-red-500 text-white shadow-md shadow-red-500/30' :
                             isTop2 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' :
                             isTop3 ? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30' :

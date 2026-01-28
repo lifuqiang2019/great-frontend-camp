@@ -111,6 +111,14 @@ export function AppLayout() {
                         { key: "questions-categories", label: <Link to="/questions/categories">分类管理</Link> },
                         { key: "questions-hot-config", label: <Link to="/questions/hot-config">热门配置</Link> },
                       ]
+                    },
+                    {
+                      key: "system",
+                      icon: <SettingOutlined />,
+                      label: "系统设置",
+                      children: [
+                        { key: "system-greeting", label: <Link to="/system/greeting">标语设置</Link> },
+                      ]
                     }
                   ]}
                 />

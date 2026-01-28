@@ -110,11 +110,12 @@ model Favorite {
 }
 
 model SystemConfig {
-  id        String   @id @default(uuid()) @map("_id")
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @map("_id")
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("system_config")
 }
