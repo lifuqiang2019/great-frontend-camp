@@ -11,6 +11,11 @@ export class QuestionsController {
     return this.questionsService.createCategory(createCategoryDto);
   }
 
+  @Delete('categories/:id')
+  removeCategory(@Param('id') id: string) {
+    return this.questionsService.removeCategory(id);
+  }
+
   @Get('categories')
   findAllCategories() {
     return this.questionsService.findAllCategories();

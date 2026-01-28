@@ -16,7 +16,7 @@ const StudentCamp = () => {
             大前端<span className="text-accent-gold">同学营</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto font-light">
-            连接每一位前端开发者，打造最有温度的技术交流社区
+            不仅仅是 Coding。这里是前端人的技术避风港，<br className="hidden md:block" />一起开源，一起成长，拒绝焦虑。
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button 
@@ -51,6 +51,73 @@ const StudentCamp = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-16 w-full">
+        {/* Partners / Sponsors Section */}
+        <div className="mb-20 overflow-hidden">
+          <p className="text-center text-gray-500 text-sm mb-8 tracking-wider uppercase font-medium">Trusted by teams at</p>
+          
+          <div className="relative w-full overflow-hidden mask-linear-fade flex flex-col gap-8">
+            <div className="flex w-max animate-marquee items-center gap-16">
+              {[
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+              ].map((partner, idx) => (
+                <div key={idx} className="flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity grayscale hover:grayscale-0 cursor-pointer">
+                  <img src={partner.logo} alt={partner.name} className="h-8 w-auto" />
+                  <span className="font-bold text-lg text-primary-800 hidden sm:block">{partner.name}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex w-max animate-marquee items-center gap-16 ml-8">
+              {[
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+                { name: "Vercel", logo: "/vercel.svg" },
+                { name: "Next.js", logo: "/next.svg" },
+                { name: "Global Tech", logo: "/globe.svg" },
+                { name: "Window OS", logo: "/window.svg" },
+                { name: "File Sys", logo: "/file.svg" },
+              ].map((partner, idx) => (
+                <div key={idx} className="flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity grayscale hover:grayscale-0 cursor-pointer">
+                  <img src={partner.logo} alt={partner.name} className="h-8 w-auto" />
+                  <span className="font-bold text-lg text-primary-800 hidden sm:block">{partner.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Value Proposition Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           {[
@@ -95,6 +162,47 @@ const StudentCamp = () => {
           ))}
         </div>
 
+        {/* Active Study Groups */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-primary-900 flex items-center gap-2 mb-8">
+            <span className="w-1.5 h-8 bg-blue-500 rounded-full"></span>
+            活跃学习小组
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+             {[
+               { title: "算法刷题组", desc: "每日一题，拒绝摆烂。LeetCode 300 题突击。", users: 128, color: "bg-orange-100 text-orange-600" },
+               { title: "Vue3 源码读写", desc: "深入响应式原理，尝试手写 mini-vue。", users: 85, color: "bg-green-100 text-green-600" },
+               { title: "Rust 前端基建", desc: "探索 SWC/TurboPack 背后的技术栈。", users: 42, color: "bg-gray-100 text-gray-700" },
+               { title: "独立开发 101", desc: "从 0 到 1，构建你的第一个盈利产品。", users: 256, color: "bg-purple-100 text-purple-600" }
+             ].map((group, idx) => (
+               <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all cursor-pointer group">
+                 <div className="flex justify-between items-start mb-4">
+                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${group.color}`}>
+                     # {group.title}
+                   </span>
+                   <div className="flex items-center text-xs text-gray-400 gap-1">
+                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
+                     </svg>
+                     {group.users}
+                   </div>
+                 </div>
+                 <p className="text-gray-600 text-sm leading-relaxed mb-4 group-hover:text-primary-900 transition-colors">
+                   {group.desc}
+                 </p>
+                 <div className="flex -space-x-2 overflow-hidden">
+                   {[...Array(4)].map((_, i) => (
+                     <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-200"></div>
+                   ))}
+                   <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-gray-100 text-[10px] text-gray-500 font-medium">
+                     +
+                   </div>
+                 </div>
+               </div>
+             ))}
+          </div>
+        </div>
+
         {/* Featured Poster Section */}
         <div className="mb-20">
           <div className="flex items-center justify-between mb-8">
@@ -114,21 +222,27 @@ const StudentCamp = () => {
             <div className="relative rounded-2xl overflow-hidden bg-primary-900 text-white min-h-[400px] flex flex-col md:flex-row">
               {/* Left Content */}
               <div className="p-10 md:p-14 md:w-1/2 z-10 flex flex-col justify-center">
-                <span className="inline-block bg-accent-gold/20 text-accent-gold border border-accent-gold/30 px-3 py-1 rounded-full text-xs font-bold tracking-wider mb-6 w-fit">
-                  COMING SOON
+                <span className="inline-block bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wider mb-6 w-fit flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                  OPEN SOURCE
                 </span>
                 <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
-                  2025 前端架构师<br/>进阶训练营
+                  Next.js 企业级<br/>实战项目共建
                 </h3>
                 <p className="text-gray-300 mb-8 text-lg">
-                  从工程化到架构设计，全方位提升技术视野。深入 React/Vue 源码，掌握前端核心命脉。
+                  拒绝纸上谈兵！从零开始打造一个全栈应用。
+                  <br/>
+                  涵盖鉴权、支付、部署全流程，代码完全开源，欢迎 PR。
                 </p>
                 <div className="flex gap-4">
-                  <button className="bg-white text-primary-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition-colors shadow-lg">
-                    立即报名
+                  <button className="bg-white text-primary-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition-colors shadow-lg flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                    </svg>
+                    GitHub 仓库
                   </button>
                   <button className="px-8 py-3 rounded-xl font-bold border border-white/20 hover:bg-white/10 transition-colors backdrop-blur-sm">
-                    课程大纲
+                    查看开发文档
                   </button>
                 </div>
               </div>
@@ -169,15 +283,15 @@ const StudentCamp = () => {
         <div className="bg-gradient-to-r from-accent-gold to-[#eac14d] rounded-3xl p-10 text-center relative overflow-hidden shadow-lg">
           <div className="absolute top-0 left-0 w-full h-full bg-white/10"></div>
           <div className="relative z-10">
-            <h2 className="text-3xl font-bold text-primary-900 mb-4">准备好开始了吗？</h2>
+            <h2 className="text-3xl font-bold text-primary-900 mb-4">Ready to Build?</h2>
             <p className="text-primary-800 mb-8 max-w-2xl mx-auto">
-              立即加入我们的学习社群，获取更多免费学习资源和内推机会。
+              不管你是小白还是大佬，这里都有你的位置。<br/>来贡献代码，来分享经验，来寻找志同道合的伙伴。
             </p>
             <button 
               onClick={() => setShowQRCode(true)}
               className="bg-primary-900 text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-primary-800 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
             >
-              免费加入社群
+              加入开源社区
             </button>
           </div>
         </div>

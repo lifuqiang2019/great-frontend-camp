@@ -317,7 +317,7 @@ export const QuestionEditorPage: React.FC = () => {
                     title={file.name}
                     description={
                       <Space>
-                        <Tag>{(file.size / 1024).toFixed(1)} KB</Tag>
+                        <Tag>{((file.size || 0) / 1024).toFixed(1)} KB</Tag>
                         {status === 'success' && <Tag color="success">导入成功</Tag>}
                         {status === 'error' && <Tag color="error">导入失败</Tag>}
                       </Space>

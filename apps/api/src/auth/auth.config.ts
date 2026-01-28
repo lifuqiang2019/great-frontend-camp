@@ -30,8 +30,10 @@ export async function getAuth() {
   };
 
   // Add proxy support for local development (Gmail SMTP requires proxy in some regions)
-  const proxyHost = process.env.PROXY_HOST || "127.0.0.1";
-  const proxyPort = process.env.PROXY_PORT || "7890";
+  // Only use proxy if PROXY_HOST is explicitly defined in env (e.g. for local dev)
+  // In production (Docker), we usually don't set PROXY_HOST, so it skips this.
+  const proxyHost = process.env.PROXY_HOST;
+  const proxyPort = process.env.PROXY_PORT;
   
   if (proxyHost && proxyPort) {
      // Switch to HTTP Proxy (HttpsProxyAgent) as it proved stable in diagnosis
@@ -98,33 +100,17 @@ export async function getAuth() {
                 <p>Please click the button below to verify your email address:</p>
                 <a href="${verificationUrlWithRedirect}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email</a>
                 <p>This link will expire in 24 hours.</p>
+                <p style="font-size: 12px; color: #666;">If you didn't create an account, you can ignore this email.</p>
               </div>
             `,
           });
-          console.log(`Email sent successfully! Message ID: ${info.messageId}`);
+          console.log("Email sent: ", info.messageId);
         } catch (error) {
-          console.error("❌ Error sending email:", error);
-          
-          // ROLLBACK: Delete the user if email fails
-          console.log("⚠️  Attempting to rollback user creation...");
-          try {
-            await prisma.user.delete({
-              where: { id: user.id }
-            });
-            console.log("✅ User rolled back (deleted) successfully.");
-          } catch (deleteError) {
-            console.error("❌ Failed to rollback user:", deleteError);
-          }
-
-          // Re-throw error to let Better Auth (and the frontend) know something went wrong
-          throw new Error("Failed to send verification email. Registration aborted.");
+          console.error("Error sending email: ", error);
         }
-        console.log("📧 ========================================");
+        console.log("======================================== 📧");
       },
     },
-    secret: process.env.BETTER_AUTH_SECRET,
-    baseURL: process.env.BETTER_AUTH_URL,
-    trustedOrigins: ["http://localhost:3000", "http://localhost:5173"],
   });
 
   return authInstance;

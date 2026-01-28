@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -106,4 +107,15 @@ model Favorite {
 
   @@unique([userId, questionId])
   @@map("favorite")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid()) @map("_id")
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_config")
 }

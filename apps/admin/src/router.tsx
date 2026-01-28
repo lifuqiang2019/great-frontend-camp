@@ -7,6 +7,8 @@ import { QuestionsPage } from "./ui/pages/QuestionsPage";
 
 import { CategoriesPage } from "./ui/pages/CategoriesPage";
 import { QuestionEditorPage } from "./ui/pages/QuestionEditorPage";
+import { HotQuestionsConfigPage } from "./ui/pages/HotQuestionsConfigPage";
+import { GreetingConfigPage } from "./ui/pages/GreetingConfigPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,8 +20,10 @@ export const router = createBrowserRouter([
       { path: "users", element: <UsersPage /> },
       { path: "questions", element: <QuestionsPage /> },
       { path: "questions/categories", element: <CategoriesPage /> },
+      { path: "questions/hot-config", element: <HotQuestionsConfigPage /> },
       { path: "questions/create", element: <QuestionEditorPage /> },
       { path: "questions/edit/:id", element: <QuestionEditorPage /> },
+      { path: "system/greeting", element: <GreetingConfigPage /> },
     ],
   },
 ]);

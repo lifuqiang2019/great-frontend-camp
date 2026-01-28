@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
@@ -19,6 +19,48 @@ const MermaidContent = React.memo(({ html, className }: { html: string; classNam
 
     // Use setTimeout to ensure DOM is updated
     const timer = setTimeout(async () => {
+      // Helper to attach listener with cloning to prevent duplicates
+      const attachListener = (selector: string, handler: (e: Event) => void) => {
+        containerRef.current?.querySelectorAll(selector).forEach(btn => {
+          const newBtn = btn.cloneNode(true);
+          if (btn.parentNode) {
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', handler);
+          }
+        });
+      };
+
+      // Attach copy listeners
+      const handleCopy = async (e: Event) => {
+        const btn = e.currentTarget as HTMLElement;
+        const container = btn.closest('.code-block-wrapper');
+        if (!container) return;
+        
+        const codeEl = container.querySelector('code');
+        if (!codeEl) return;
+        
+        const text = codeEl.textContent || '';
+        
+        try {
+          await navigator.clipboard.writeText(text);
+          
+          // Visual feedback
+          const originalIcon = btn.innerHTML;
+          btn.innerHTML = `
+            <svg class="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          `;
+          setTimeout(() => {
+            btn.innerHTML = originalIcon;
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      };
+
+      attachListener('.copy-code-btn', handleCopy);
+
       // Find unprocessed mermaid blocks within this container
       const mermaidNodes = containerRef.current?.querySelectorAll('.mermaid');
       
@@ -90,17 +132,6 @@ const MermaidContent = React.memo(({ html, className }: { html: string; classNam
           }
         };
 
-        // Helper to attach listener with cloning to prevent duplicates
-        const attachListener = (selector: string, handler: (e: Event) => void) => {
-          containerRef.current?.querySelectorAll(selector).forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            if (btn.parentNode) {
-              btn.parentNode.replaceChild(newBtn, btn);
-              newBtn.addEventListener('click', handler);
-            }
-          });
-        };
-
         attachListener('.zoom-in-btn', (e) => handleZoom(e, 0.1));
         attachListener('.zoom-out-btn', (e) => handleZoom(e, -0.1));
         attachListener('.zoom-reset-btn', handleReset);
@@ -137,24 +168,90 @@ interface CodingCommunityProps {
   onLoginRequest?: () => void;
   viewMode?: 'default' | 'favorites' | 'favorites-only';
   onCloseFavorites?: () => void;
+  initialQuestionId?: string;
 }
 
-export default function CodingCommunity({ onLoginRequest, viewMode = 'default', onCloseFavorites }: CodingCommunityProps) {
+const QuestionListItem = ({ 
+  item, 
+  index, 
+  isSelected,
+  onSelect,
+  isHot = false
+}: { 
+  item: QuestionItem; 
+  index: number; 
+  isSelected: boolean;
+  onSelect: (item: QuestionItem) => void;
+  isHot?: boolean;
+}) => {
+  return (
+    <div className="relative mb-0.5">
+      <div
+        onClick={() => onSelect(item)}
+        className={`group w-full p-2 rounded-md cursor-pointer text-sm transition-colors duration-200 ease-in-out overflow-hidden ${
+          isSelected 
+            ? 'text-primary-900 bg-primary-100 font-medium' 
+            : 'text-primary-500 hover:text-primary-900 hover:bg-primary-50 bg-transparent'
+        }`}
+      >
+        <div className="flex items-start gap-2">
+          <span className={`text-xs font-mono min-w-[1rem] shrink-0 pt-0.5 text-center ${
+            isHot && index === 0 ? 'text-[#FF2D55] font-black italic text-sm scale-110 drop-shadow-sm' :
+            isHot && index === 1 ? 'text-[#FF9500] font-extrabold italic' :
+            isHot && index === 2 ? 'text-[#FFCC00] font-bold italic' :
+            'text-primary-300'
+          }`}>
+            {index + 1}
+          </span>
+          <div className="flex-1 leading-relaxed line-clamp-1 break-all">
+            {item.title}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function CodingCommunity({ onLoginRequest, viewMode = 'default', onCloseFavorites, initialQuestionId }: CodingCommunityProps) {
   const { data: session } = useSession();
+  const [hotLimit, setHotLimit] = useState(10);
+  const [hotExpandedLimit, setHotExpandedLimit] = useState(20);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const [limitRes, expandedLimitRes] = await Promise.all([
+          api.get('/system/config/hot_questions_limit'),
+          api.get('/system/config/hot_questions_expanded_limit')
+        ]);
+        if (limitRes) setHotLimit(Number(limitRes));
+        if (expandedLimitRes) setHotExpandedLimit(Number(expandedLimitRes));
+      } catch (e) {
+        console.error("Failed to fetch config", e);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>(['hot']);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [solutionHtml, setSolutionHtml] = useState('');
+  const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
   const [transcriptHtml, setTranscriptHtml] = useState('');
   const [activeTab, setActiveTab] = useState('solution');
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isHotExpanded, setIsHotExpanded] = useState(false);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+
+  const isFavorite = useMemo(() => {
+    return selectedQuestion ? favoriteIds.has(selectedQuestion.id) : false;
+  }, [selectedQuestion, favoriteIds]);
 
   // Show toast helper
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -181,11 +278,11 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
   }, [session]);
 
   // Check favorite status for selected question
-  useEffect(() => {
-    if (selectedQuestion) {
-      setIsFavorite(favoriteIds.has(selectedQuestion.id));
-    }
-  }, [selectedQuestion, favoriteIds]);
+  // useEffect(() => {
+  //   if (selectedQuestion) {
+  //     setIsFavorite(favoriteIds.has(selectedQuestion.id));
+  //   }
+  // }, [selectedQuestion, favoriteIds]);
 
   const toggleFavorite = async () => {
     if (!session?.user) {
@@ -198,7 +295,6 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     try {
       // Optimistic update
       const newStatus = !isFavorite;
-      setIsFavorite(newStatus);
       showToast(newStatus ? '已添加到收藏' : '已取消收藏');
       
       // Update local set
@@ -216,7 +312,6 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
       
       // Sync with server if mismatch
       if (res.isFavorite !== newStatus) {
-         setIsFavorite(res.isFavorite);
          setFavoriteIds(prev => {
             const next = new Set(prev);
             if (res.isFavorite) {
@@ -230,7 +325,6 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
       showToast('操作失败，请重试', 'error');
-      setIsFavorite(!isFavorite); // Revert
        setFavoriteIds(prev => {
         const next = new Set(prev);
         if (!isFavorite) { // We tried to set it to true but failed, so revert to false (remove)
@@ -253,6 +347,11 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
+      },
+      heading({ text, depth }: any) {
+        const cleanText = text.replace(/<[^>]*>?/gm, '');
+        const id = cleanText.trim().replace(/\s+/g, '-').toLowerCase().replace(/[^\w\u4e00-\u9fa5-]/g, '');
+        return `<h${depth} id="${id}">${text}</h${depth}>`;
       },
       code({ text, lang }: any) {
         if (lang === 'mermaid') {
@@ -301,7 +400,28 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
           `;
         }
         const language = lang || 'plaintext';
-        return `<pre><code class="hljs language-${language}">${text}</code></pre>`;
+        return `
+          <div class="code-block-wrapper group/code relative my-6 rounded-xl overflow-hidden border border-primary-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] bg-neutral-white transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+            <div class="flex items-center justify-between px-4 py-3 bg-primary-50/30 border-b border-primary-100/50 backdrop-blur-sm rounded-t-xl">
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full bg-[#ff5f57] shadow-[inset_0_0_2px_rgba(0,0,0,0.1)] border border-black/5 hover:scale-110 transition-transform duration-200"></div>
+                <div class="w-3 h-3 rounded-full bg-[#febc2e] shadow-[inset_0_0_2px_rgba(0,0,0,0.1)] border border-black/5 hover:scale-110 transition-transform duration-200"></div>
+                <div class="w-3 h-3 rounded-full bg-[#28c840] shadow-[inset_0_0_2px_rgba(0,0,0,0.1)] border border-black/5 hover:scale-110 transition-transform duration-200"></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="text-[10px] font-mono font-medium text-primary-400 uppercase tracking-wider select-none opacity-0 group-hover/code:opacity-100 transition-opacity">
+                  ${language}
+                </div>
+                <button class="copy-code-btn opacity-0 group-hover/code:opacity-100 transition-opacity p-1.5 hover:bg-primary-100 rounded-md text-primary-400 hover:text-primary-600" title="复制/Copy">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <pre class="!my-0 !border-none !rounded-none !bg-transparent !shadow-none overflow-x-auto custom-scrollbar"><code class="hljs language-${language} !bg-transparent font-mono text-[13px] leading-relaxed">${text}</code></pre>
+          </div>
+        `;
       }
     };
 
@@ -326,6 +446,29 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     });
   }, []);
 
+  // Extract TOC from solutionHtml
+  useEffect(() => {
+    if (!solutionHtml) {
+      setToc([]);
+      return;
+    }
+    const div = document.createElement('div');
+    div.innerHTML = solutionHtml;
+    const headings = Array.from(div.querySelectorAll('h1, h2, h3'));
+    const newToc = headings.map((h, index) => {
+      let id = h.id;
+      if (!id) {
+         id = `heading-${index}`;
+      }
+      return {
+        id,
+        text: h.textContent || '',
+        level: parseInt(h.tagName.substring(1))
+      };
+    });
+    setToc(newToc);
+  }, [solutionHtml]);
+
 
 
   useEffect(() => {
@@ -337,6 +480,8 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
         ]);
         setQuestions(questionsData);
         setCategories(categoriesData);
+        // Expand all categories by default, including 'hot'
+        setExpandedCategoryIds(['hot', ...categoriesData.map(c => c.id)]);
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -346,6 +491,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
 
     fetchData();
   }, []);
+
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategoryIds(prev => 
@@ -409,7 +555,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
   const hotQuestions = useMemo(() => {
     return [...questions]
       .sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0))
-      .slice(0, 5);
+      .slice(0, 20);
   }, [questions]);
 
   // Video Preview Component
@@ -442,9 +588,13 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
     return questions.filter(q => favoriteIds.has(q.id));
   }, [questions, favoriteIds]);
 
-  const selectQuestion = async (item: QuestionItem) => {
+  const selectQuestion = useCallback(async (item: QuestionItem, updateUrl = true) => {
     setSelectedQuestion(item);
     setActiveTab('solution');
+    
+    if (updateUrl) {
+      window.history.pushState({}, '', `/questions/${item.id}`);
+    }
     
     try {
       if (item.solution) {
@@ -464,7 +614,60 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
       console.error('Failed to parse content:', error);
       setSolutionHtml('<p>加载失败，请稍后重试</p>');
     }
-  };
+  }, [marked]);
+
+  // Handle initial question selection
+  useEffect(() => {
+    if (questions.length > 0) {
+      if (initialQuestionId) {
+        const q = questions.find(q => q.id === initialQuestionId);
+        if (q) {
+          // If it's the initial load from URL, we don't need to push state again
+          // But we DO need to select it.
+          // We compare with currently selected to avoid infinite loops if selectQuestion causes re-render that triggers this
+          // (though selectQuestion is not in dependency array, so it's fine)
+          if (selectedQuestion?.id !== q.id) {
+              selectQuestion(q, false);
+          }
+        }
+      } else {
+        // Fix: Explicitly clear selection if initialQuestionId is undefined/null
+        // This ensures that when navigating to the main tab (clearing the ID), we return to the list view
+        // even if the component doesn't fully remount or state is preserved
+        if (selectedQuestion) {
+          setSelectedQuestion(null);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, initialQuestionId, selectQuestion]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      
+      // Check if we are on a question page
+      const match = path.match(/\/questions\/([^\/]+)/);
+      if (match) {
+        const id = match[1];
+        if (questions.length > 0) {
+           const q = questions.find(q => q.id === id);
+           if (q && q.id !== selectedQuestion?.id) {
+              selectQuestion(q, false);
+           }
+        }
+      } else if (path === '/' || path === '') {
+        // If we are back at root, deselect
+        if (selectedQuestion) {
+          setSelectedQuestion(null);
+        }
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [questions, selectedQuestion, selectQuestion]);
 
   const markdownStyles = `
     [&>h1]:text-2xl [&>h1]:pb-3 [&>h1]:border-b [&>h1]:border-primary-200 [&>h1]:mt-0 [&>h1]:mb-5 [&>h1]:font-bold [&>h1]:text-primary-900 [&>h1]:relative [&>h1]:after:content-[''] [&>h1]:after:absolute [&>h1]:after:bottom-[-1px] [&>h1]:after:left-0 [&>h1]:after:w-[50px] [&>h1]:after:h-[3px] [&>h1]:after:bg-accent-copper [&>h1]:after:rounded-[2px]
@@ -523,7 +726,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-[10px] m-0 pt-0">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-[10px] m-0 pt-0">
           {isLoading ? (
             <div className="p-4 text-center text-primary-400 text-sm">加载中...</div>
           ) : (searchQuery || viewMode === 'favorites-only') ? (
@@ -534,7 +737,7 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                   {viewMode === 'favorites-only' && !searchQuery ? '暂无收藏题目' : '无匹配题目'}
                 </div>
               ) : (
-                filteredQuestions.map((item, index) => (
+                filteredQuestions.map((item) => (
                   <li
                     key={item.id}
                     onClick={() => selectQuestion(item)}
@@ -555,60 +758,26 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
             <div className="flex flex-col">
               <div className="px-3 pb-2 pt-0">
                 {/* Hot Questions Category */}
-                <div className="mb-1">
-                  <div 
-                    onClick={() => {
-                      toggleCategory('hot');
-                      setSelectedQuestion(null);
-                    }}
-                    className={`flex items-center gap-2 p-2 px-3 cursor-pointer rounded-lg transition-colors text-sm group ${
-                      !selectedQuestion && expandedCategoryIds.includes('hot') // Highlight if open and no specific selection? Or just rely on item selection
-                        ? 'text-primary-900 bg-primary-50 font-medium' 
-                        : 'text-primary-700 hover:bg-gray-50'
-                    }`}
-                  >
-                     <svg 
-                      className={`w-3.5 h-3.5 text-primary-400 transition-transform duration-200 ${expandedCategoryIds.includes('hot') ? 'rotate-90' : ''}`} 
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 p-2 px-3 rounded-lg text-sm font-medium text-primary-900 bg-primary-50/50">
                     <div className="flex items-center gap-2 flex-1">
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500"><path d="M12 2a5 5 0 0 1 3.5 1.5 5 5 0 0 1 1 3.5v.5c0 3.5-2.5 6-5.5 6S5.5 11 5.5 7.5v-.5a5 5 0 0 1 1-3.5A5 5 0 0 1 12 2z"></path><path d="M12 14c-4 0-6 2-6 5v2h12v-2c0-3-2-5-6-5z"></path><path d="M12 2v.5"></path><path d="M15.5 5.5l.5-.5"></path><path d="M8.5 5.5l-.5-.5"></path></svg>
                       <span>热门题目</span>
                     </div>
                   </div>
                   
-                  {expandedCategoryIds.includes('hot') && (
-                    <div className="ml-4 pl-3 border-l border-primary-100 mt-1 relative">
-                      {hotQuestions.map((item, index) => (
-                        <div key={item.id} className="relative h-9 mb-0.5 z-0 hover:z-20">
-                          <div
-                            onClick={() => selectQuestion(item)}
-                            className={`group absolute top-0 left-0 w-full p-2 rounded-md cursor-pointer text-sm transition-all duration-300 ease-in-out overflow-hidden max-h-9 hover:max-h-[200px] hover:shadow-lg ${
-                              selectedQuestion?.id === item.id 
-                                ? 'text-primary-900 bg-primary-100 font-medium z-10' 
-                                : 'text-primary-500 hover:text-primary-900 hover:bg-white bg-transparent'
-                            }`}
-                          >
-                            <div className="flex gap-2">
-                              <span className={`text-xs font-mono min-w-[1rem] pt-0.5 text-center ${
-                                index === 0 ? 'text-[#FF2D55] font-black italic text-sm scale-110 drop-shadow-sm' :
-                                index === 1 ? 'text-[#FF9500] font-extrabold italic' :
-                                index === 2 ? 'text-[#FFCC00] font-bold italic' :
-                                'text-primary-300'
-                              }`}>
-                                {index + 1}
-                              </span>
-                              <div className="truncate group-hover:whitespace-normal group-hover:text-clip transition-none flex-1">
-                                {item.title}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="px-1 mt-1 relative">
+                    {hotQuestions.map((item, index) => (
+                      <QuestionListItem 
+                        key={`hot-${item.id}`}
+                        item={item} 
+                        index={index} 
+                        isSelected={selectedQuestion?.id === item.id}
+                        onSelect={selectQuestion}
+                        isHot={true}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 {categories.map(category => {
@@ -641,27 +810,15 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                       </div>
                       
                       {isExpanded && (
-                        <div className="ml-4 pl-3 border-l border-primary-100 mt-1">
+                        <div className="px-1 mt-1 relative">
                           {categoryQuestions.map((item, index) => (
-                            <div key={item.id} className="relative h-9 mb-0.5 z-0 hover:z-20">
-                              <div
-                                onClick={() => selectQuestion(item)}
-                                className={`group absolute top-0 left-0 w-full p-2 rounded-md cursor-pointer text-sm transition-all duration-300 ease-in-out overflow-hidden max-h-9 hover:max-h-[200px] hover:shadow-lg ${
-                                  selectedQuestion?.id === item.id 
-                                    ? 'text-primary-900 bg-primary-100 font-medium z-10' 
-                                    : 'text-primary-500 hover:text-primary-900 hover:bg-white bg-transparent'
-                                }`}
-                              >
-                                <div className="flex gap-2">
-                                  <span className="text-xs font-mono min-w-[1rem] pt-0.5 text-center text-primary-300">
-                                    {index + 1}
-                                  </span>
-                                  <div className="truncate group-hover:whitespace-normal group-hover:text-clip transition-none flex-1">
-                                    {item.title}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            <QuestionListItem 
+                              key={item.id} 
+                              item={item} 
+                              index={index} 
+                              isSelected={selectedQuestion?.id === item.id}
+                              onSelect={selectQuestion}
+                            />
                           ))}
                         </div>
                       )}
@@ -679,7 +836,18 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
         {selectedQuestion ? (
           <>
             <div className="flex items-center justify-between px-8 py-4 border-b border-primary-100 bg-neutral-white">
-              <div className="flex p-1.5 bg-primary-50 rounded-xl">
+              <div className="flex items-center gap-4">
+                 <button 
+                  onClick={() => {
+                    setSelectedQuestion(null);
+                    window.history.pushState({}, '', '/questions');
+                  }}
+                  className="flex items-center justify-center w-8 h-8 rounded-full text-primary-400 hover:text-primary-700 hover:bg-primary-50 transition-colors"
+                  title="返回首页"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <div className="flex p-1.5 bg-primary-50 rounded-xl">
                 <button
                   onClick={() => setActiveTab('solution')}
                   className={`px-6 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
@@ -711,11 +879,12 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                   好题精讲
                 </button>
               </div>
+              </div>
 
               {/* Favorite Button */}
               <div 
                 onClick={toggleFavorite}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all duration-200 border select-none ${
+                className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors duration-200 border select-none min-w-[92px] ${
                   isFavorite 
                     ? 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100' 
                     : 'bg-white text-gray-400 border-gray-200 hover:text-gray-600 hover:border-gray-300'
@@ -771,15 +940,11 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
               >
                 <div className="flex flex-col gap-8 max-w-3xl mx-auto">
                    {/* Interviewer Question */}
-                   <div className="flex items-start gap-4">
+                   <div className="flex items-start gap-3">
                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0 text-xl border border-primary-200">
                        🤖
                      </div>
-                     <div className="flex-1 min-w-0">
-                       <div className="flex items-center gap-2 mb-1.5">
-                         <span className="text-sm font-bold text-primary-900">面试官</span>
-                         <span className="text-xs text-primary-400">Interviewer</span>
-                       </div>
+                     <div className="flex-1 min-w-0 flex flex-col items-start max-w-[85%]">
                        <div className="bg-white border border-primary-200 p-4 rounded-2xl rounded-tl-none shadow-[0_2px_8px_rgba(0,0,0,0.04)] relative">
                          <div className="text-primary-800 leading-relaxed whitespace-pre-wrap">
                            {selectedQuestion.interviewerQuestion || '请简述一下这个知识点。'}
@@ -789,16 +954,12 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
                    </div>
 
                    {/* User Answer */}
-                   <div className="flex items-start gap-4 flex-row-reverse">
+                   <div className="flex items-start gap-3 flex-row-reverse">
                      <div className="w-10 h-10 rounded-full bg-accent-copper/10 flex items-center justify-center shrink-0 text-accent-copper font-bold text-sm border border-accent-copper/20">
                        ME
                      </div>
-                     <div className="flex-1 min-w-0">
-                       <div className="flex items-center gap-2 mb-1.5 flex-row-reverse">
-                         <span className="text-sm font-bold text-primary-900">我</span>
-                         <span className="text-xs text-primary-400">Candidate</span>
-                       </div>
-                       <div className="bg-primary-50 border border-primary-100 p-4 rounded-2xl rounded-tr-none shadow-sm relative overflow-hidden">
+                     <div className="flex-1 min-w-0 flex flex-col items-end max-w-[85%]">
+                       <div className="bg-primary-50 border border-primary-100 p-4 rounded-2xl rounded-tr-none shadow-sm relative overflow-hidden text-left">
                          {transcriptHtml ? (
                             <MermaidContent 
                               html={transcriptHtml} 
@@ -823,56 +984,312 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-primary-400 p-8 overflow-y-auto custom-scrollbar">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-bold mb-3 text-primary-800">编程社区题库</h2>
-              <p className="text-primary-500">精选面试真题，助你斩获 Offer</p>
+          <div className="flex flex-col h-full w-full p-6 overflow-hidden bg-neutral-white/30">
+            <div className="text-center mb-6 shrink-0">
+              <h2 className="text-2xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-primary-900 to-primary-600 tracking-tight">编程社区题库</h2>
+              <p className="text-primary-500 font-medium text-sm">精选面试真题，助你斩获 Offer</p>
             </div>
 
-            <div className="w-full max-w-2xl">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl">🔥</span>
-                <h3 className="text-lg font-bold text-primary-800">热门推荐</h3>
+            <div className="flex-1 min-h-0 w-full max-w-full mx-auto flex flex-col overflow-y-auto scrollbar-hide px-4">
+              <div className="flex items-center gap-2 mb-4 shrink-0">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white">
+                   <span className="text-sm">🔥</span>
+                </div>
+                <h3 className="text-lg font-bold text-primary-900 tracking-tight">热门推荐</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {hotQuestions.map((item, index) => (
+              
+              {/* Top Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 shrink-0">
+                {hotQuestions.slice(0, 5).map((item, index) => {
+                  const isTop1 = index === 0;
+                  const isTop2 = index === 1;
+                  const isTop3 = index === 2;
+                  
+                  return (
                   <div 
                     key={`hot-grid-${item.id}`}
                     onClick={() => selectQuestion(item)}
                     onMouseEnter={() => setHoveredQuestionId(item.id)}
                     onMouseLeave={() => setHoveredQuestionId(null)}
-                    className="bg-white p-4 rounded-xl border border-primary-100 shadow-sm hover:shadow-md hover:border-accent-copper/30 transition-all cursor-pointer group relative"
+                    className={`
+                      relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between h-[280px]
+                      ${isTop1 ? 'md:col-span-2 md:row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50 h-[580px]' : ''}
+                      ${isTop2 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40' : ''}
+                      ${isTop3 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40' : ''}
+                      ${index > 2 ? 'bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md' : ''}
+                    `}
                   >
-                    {/* Video Preview Popup for Grid Item */}
-                    {hoveredQuestionId === item.id && (item.videoUrl || item.id === hotQuestions[0].id) && (
+
+
+                    {/* Background Decor Numbers */}
+                    {(index < 3) && (
+                      <div className={`absolute -right-2 -bottom-4 font-black leading-none opacity-5 select-none pointer-events-none transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 ${
+                        isTop1 ? 'text-[100px] text-red-600' : isTop2 ? 'text-[80px] text-orange-500' : 'text-[80px] text-yellow-500'
+                      }`}>
+                        {index + 1}
+                      </div>
+                    )}
+
+                    {/* Video Preview Popup - Disabled for Top 1 as it has dedicated video block */}
+                    {hoveredQuestionId === item.id && !isTop1 && (item.videoUrl || item.id === hotQuestions[0].id) && (
                       <VideoPreview 
                         url={item.videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"} 
                         title={item.title} 
                       />
                     )}
 
-                    <div className="flex items-start gap-3">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-0.5 ${
-                        index < 3 ? 'bg-red-50 text-red-600' : 'bg-primary-100 text-primary-600'
+                    <div className="p-4 z-10 flex flex-col h-full">
+                      <div className="flex items-start justify-between gap-3 mb-2 shrink-0">
+                         <div className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-black italic shadow-sm shrink-0 ${
+                           isTop1 ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white ring-1 ring-red-100' :
+                           isTop2 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white ring-1 ring-orange-100' :
+                           isTop3 ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white ring-1 ring-yellow-100' :
+                           'bg-primary-100 text-primary-600'
+                         }`}>
+                           {index < 3 ? 'TOP ' + (index + 1) : '#' + (index + 1)}
+                         </div>
+                         {index < 3 && (
+                           <div className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/50 border border-black/5 text-primary-600 backdrop-blur-sm shrink-0">
+                             🔥 爆表
+                           </div>
+                         )}
+                      </div>
+
+                      <h4 className={`font-bold leading-snug group-hover:text-accent-copper transition-colors mb-2 ${
+                        isTop1 ? 'text-xl text-primary-900 line-clamp-2' : 
+                        index < 3 ? 'text-base text-primary-900 line-clamp-2' : 
+                        'text-sm text-primary-800 line-clamp-2'
                       }`}>
-                        TOP {index + 1}
-                      </span>
-                      <h4 className="font-medium text-primary-800 group-hover:text-accent-copper transition-colors line-clamp-2 flex-1">
                         {item.title}
                       </h4>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-primary-400">
-                       <span>{categories.find(c => c.id === item.categoryId)?.name || '未分类'}</span>
-                       <span className="group-hover:translate-x-1 transition-transform">立即练习 →</span>
+
+                      {isTop1 ? (
+                        <p className="text-primary-500 text-xs line-clamp-2 leading-relaxed opacity-80 mb-3">
+                          这是一道非常经典的前端面试题，考察了浏览器渲染机制的核心流程。掌握它不仅能应对面试，更能帮助你理解性能优化的底层原理。
+                        </p>
+                      ) : (
+                        <div className="relative">
+                           <div className="absolute top-0 left-0 w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-xs border border-primary-100 -mt-1 select-none">
+                              {['👨‍💻', '👩‍💻', '🧑‍🎓', '🦁', '🦊', '🐼', '🐯', '🐮', '🐵', '🚀'][item.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10]}
+                           </div>
+                           <p className="text-primary-500 text-xs line-clamp-4 leading-relaxed opacity-80 mb-3 break-all indent-[3em]">
+                            {item.transcript 
+                              ? item.transcript.replace(/[#*`\[\]()>]/g, '').replace(/\s+/g, ' ').slice(0, 300)
+                              : (item.solution 
+                                  ? item.solution.replace(/[#*`\[\]()>]/g, '').replace(/\s+/g, ' ').slice(0, 300)
+                                  : '暂无详细记录...'
+                                )
+                            }
+                           </p>
+                        </div>
+                      )}
+
+                      {/* Top 1 Video Block */}
+                      {isTop1 && (
+                        <div 
+                          className="relative w-full flex-1 min-h-0 rounded-xl overflow-hidden mb-3 group-hover:shadow-md transition-all bg-black/5 z-20"
+                          onClick={(e) => e.stopPropagation()} 
+                        >
+                          <video 
+                            src={item.videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
+                            className="w-full h-full object-cover"
+                            controls
+                            muted
+                            playsInline
+                            // Removed autoPlay and loop as requested: default paused and muted
+                          />
+                          <div className="absolute top-2 right-2 bg-black/20 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 pointer-events-none">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            Video
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-black/5 shrink-0 min-w-0">
+                         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate ${
+                             isTop1 ? 'bg-red-50 border-red-100 text-red-600' : 
+                             isTop2 ? 'bg-orange-50 border-orange-100 text-orange-600' :
+                             isTop3 ? 'bg-yellow-50 border-yellow-100 text-yellow-700' :
+                             'bg-primary-50 border-primary-100 text-primary-500'
+                           }`}>
+                             {categories.find(c => c.id === item.categoryId)?.name || '未分类'}
+                           </span>
+                           <span className="text-primary-400 text-[10px] flex items-center gap-0.5 shrink-0">
+                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                             </svg>
+                             {item.hotScore || 0}
+                           </span>
+                         </div>
+                         
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shrink-0 ${
+                            isTop1 ? 'bg-red-500 text-white shadow-md shadow-red-500/30' :
+                            isTop2 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' :
+                            isTop3 ? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30' :
+                            'bg-primary-100 text-primary-400 group-hover:bg-accent-copper group-hover:text-white'
+                         }`}>
+                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                           </svg>
+                         </div>
+                      </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
+
+
             </div>
           </div>
         )}
 
       </div>
+
+      {/* Right Sidebar */}
+      {selectedQuestion && (
+        <div className="w-[240px] hidden xl:flex flex-col shrink-0 h-full transition-all duration-300">
+           
+           {/* TOC Content (Solution Tab) */}
+           {activeTab === 'solution' && toc.length > 0 && (
+             <div className="flex flex-col bg-neutral-white rounded-xl border border-primary-100 shadow-[0_4px_12px_rgba(45,31,31,0.03)] overflow-hidden max-h-full min-h-[200px]">
+               <div className="p-4 border-b border-primary-100/50 bg-primary-50/30">
+                 <h3 className="font-bold text-primary-900 text-sm flex items-center gap-2">
+                   <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                   </svg>
+                   目录
+                 </h3>
+               </div>
+               <div className="overflow-y-auto p-4 custom-scrollbar">
+                 <ul className="space-y-2 text-sm relative">
+                   {toc.map((item, idx) => (
+                     <li key={idx} className="relative">
+                       <a 
+                         href={`#${item.id}`} 
+                         onClick={(e) => {
+                           e.preventDefault();
+                           const el = document.getElementById(item.id);
+                           if (el && contentScrollRef.current) {
+                              el.scrollIntoView({ behavior: 'smooth' });
+                           }
+                         }}
+                         className={`block text-primary-500 hover:text-accent-copper transition-colors truncate py-1 ${item.level > 1 ? 'ml-2 text-xs' : 'font-medium'}`}
+                         title={item.text}
+                       >
+                         {item.text}
+                       </a>
+                     </li>
+                   ))}
+                 </ul>
+               </div>
+             </div>
+           )}
+
+           {/* Interview Tips & Keywords (Answer Tab) */}
+           {activeTab === 'answer' && (
+              <div className="flex flex-col gap-4">
+                {/* Interview Tips */}
+                <div className="bg-neutral-white rounded-xl border border-primary-100 shadow-[0_4px_12px_rgba(45,31,31,0.03)] overflow-hidden">
+                  <div className="p-4 border-b border-primary-100/50 bg-amber-50/50">
+                    <h3 className="font-bold text-amber-800 text-sm flex items-center gap-2">
+                      <span className="text-lg">💡</span>
+                      面试锦囊
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <ul className="space-y-3">
+                      <li className="text-xs text-primary-600 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0"></span>
+                        <span className="leading-relaxed">使用 <strong>STAR 法则</strong> (情境、任务、行动、结果) 组织你的回答，逻辑更清晰。</span>
+                      </li>
+                      <li className="text-xs text-primary-600 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0"></span>
+                        <span className="leading-relaxed">先说<strong>核心结论</strong>，再展开技术细节，避免漫无边际的铺垫。</span>
+                      </li>
+                      <li className="text-xs text-primary-600 flex items-start gap-2">
+                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0"></span>
+                         <span className="leading-relaxed">遇到不会的问题，可以尝试联系相关知识点，或诚实表达并展现学习态度。</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Key Concepts (Mock Data) */}
+                <div className="bg-neutral-white rounded-xl border border-primary-100 shadow-[0_4px_12px_rgba(45,31,31,0.03)] overflow-hidden min-h-[150px]">
+                   <div className="p-4 border-b border-primary-100/50 bg-blue-50/50">
+                    <h3 className="font-bold text-blue-800 text-sm flex items-center gap-2">
+                      <span className="text-lg">🔑</span>
+                      核心关键词
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex flex-wrap gap-2">
+                       {['原理分析', '源码解读', '性能优化', '最佳实践', '常见坑点', '对比分析'].map((tag, i) => (
+                         <span key={i} className="px-2 py-1 bg-primary-50 text-primary-600 text-xs rounded border border-primary-100">
+                           {tag}
+                         </span>
+                       ))}
+                       {/* Dynamic tags based on category could go here */}
+                       <span className="px-2 py-1 bg-accent-copper/10 text-accent-copper text-xs rounded border border-accent-copper/20">
+                          {categories.find(c => c.id === selectedQuestion.categoryId)?.name || '通用'}
+                       </span>
+                    </div>
+                    <p className="text-[10px] text-primary-400 mt-4 text-center">
+                      回答时覆盖这些要点，通过率更高哦
+                    </p>
+                  </div>
+                </div>
+              </div>
+           )}
+
+           {/* Related Recommendations (Explanation Tab) */}
+           {activeTab === 'explanation' && (
+             <div className="flex flex-col gap-4">
+                <div className="bg-neutral-white rounded-xl border border-primary-100 shadow-[0_4px_12px_rgba(45,31,31,0.03)] overflow-hidden min-h-[200px]">
+                   <div className="p-4 border-b border-primary-100/50 bg-indigo-50/50">
+                    <h3 className="font-bold text-indigo-800 text-sm flex items-center gap-2">
+                      <span className="text-lg">📚</span>
+                      相关推荐
+                    </h3>
+                  </div>
+                  <div className="p-2">
+                    {questions
+                      .filter(q => q.categoryId === selectedQuestion.categoryId && q.id !== selectedQuestion.id)
+                      .slice(0, 5)
+                      .map((item) => (
+                        <div 
+                          key={item.id}
+                          onClick={() => selectQuestion(item)}
+                          className="p-3 mb-1 rounded-lg hover:bg-primary-50 cursor-pointer transition-colors group"
+                        >
+                          <div className="text-xs font-medium text-primary-800 line-clamp-2 group-hover:text-accent-copper mb-1">
+                            {item.title}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-primary-400">
+                            <span>热度 {item.hotScore || 0}</span>
+                            <span>•</span>
+                            <span>{categories.find(c => c.id === item.categoryId)?.name}</span>
+                          </div>
+                        </div>
+                    ))}
+                    {questions.filter(q => q.categoryId === selectedQuestion.categoryId && q.id !== selectedQuestion.id).length === 0 && (
+                       <div className="p-4 text-center text-primary-400 text-xs">
+                         暂无同类推荐
+                       </div>
+                    )}
+                  </div>
+                </div>
+             </div>
+           )}
+
+           {/* Empty placeholder fallback */}
+           {((activeTab === 'solution' && toc.length === 0)) && (
+              <div className="w-full h-full"></div>
+           )}
+        </div>
+      )}
 
       {/* Favorites Floating Panel (Moved outside Main Content) */}
       {viewMode === 'favorites' && (
@@ -962,6 +1379,19 @@ export default function CodingCommunity({ onLoginRequest, viewMode = 'default', 
            </div>
         </div>
       )}
+
+      {/* Custom Tooltip */}
+      {/* {activeTooltip && (
+        <div 
+          className="fixed z-[100] px-3 py-2 bg-gray-900/90 text-white text-xs rounded shadow-lg max-w-xs break-words pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+          style={{ 
+            left: activeTooltip.x, 
+            top: activeTooltip.y 
+          }}
+        >
+          {activeTooltip.content}
+        </div>
+      )} */}
 
     </div>
   );
