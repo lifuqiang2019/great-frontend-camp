@@ -10,13 +10,11 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 
 # Copy app package files
 COPY apps/api/package.json apps/api/
+COPY apps/api/prisma ./apps/api/prisma/
 COPY apps/web/package.json apps/web/
 COPY apps/admin/package.json apps/admin/
 
 # Install dependencies
-# Set PRISMA_SKIP_POSTINSTALL_GENERATE=true to avoid running prisma generate during install
-# because the schema file is not yet copied at this stage
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN pnpm install
 
 # Copy source code
