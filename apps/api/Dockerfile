@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and openssl
+RUN apk add --no-cache openssl libc6-compat && npm install -g pnpm
 
 WORKDIR /app
 
@@ -14,8 +14,8 @@ COPY apps/web/package.json apps/web/
 COPY apps/admin/package.json apps/admin/
 
 # Disable postinstall script in apps/api/package.json to prevent prisma generate from running during pnpm install
-# This is necessary because the prisma schema is not yet available
-RUN sed -i 's/"postinstall": "prisma generate"/"postinstall": "echo skipping prisma generate"/' apps/api/package.json
+# Using node script for reliable JSON modification
+RUN node -e "const fs = require('fs'); const path = 'apps/api/package.json'; const pkg = JSON.parse(fs.readFileSync(path, 'utf8')); if (pkg.scripts && pkg.scripts.postinstall) { pkg.scripts.postinstall = 'echo skipping prisma generate'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); }"
 
 # Install dependencies
 RUN pnpm install
