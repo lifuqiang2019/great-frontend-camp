@@ -17,6 +17,19 @@ export async function getAuth() {
 
   const { betterAuth } = await dynamicImport("better-auth");
   const { prismaAdapter } = await dynamicImport("better-auth/adapters/prisma");
+  
+  // Configure Global Proxy for Fetch (Better-Auth uses fetch internally)
+  if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+    try {
+      const { setGlobalDispatcher, ProxyAgent } = await dynamicImport("undici");
+      const proxyUrl = `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+      const dispatcher = new ProxyAgent(proxyUrl);
+      setGlobalDispatcher(dispatcher);
+      console.log(`🌐 Global Fetch Proxy Configured: ${proxyUrl}`);
+    } catch (error) {
+      console.warn("   ⚠️ Failed to configure global proxy with undici:", error);
+    }
+  }
 
   // Create Nodemailer transporter
   const transporterConfig: any = {
@@ -118,6 +131,7 @@ export async function getAuth() {
       },
     },
     trustedOrigins: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
       "http://localhost:3000",
       "http://localhost:5173",
       "http://localhost:5174",

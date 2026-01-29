@@ -995,10 +995,6 @@ export default function CodingCommunity({
           </>
         ) : (
           <div className="flex flex-col h-full w-full p-6 overflow-hidden bg-neutral-white/30">
-            <div className="text-center mb-6 shrink-0">
-              <h2 className="text-2xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-primary-900 to-primary-600 tracking-tight">编程社区题库</h2>
-              <p className="text-primary-500 font-medium text-sm">精选面试真题，助你斩获 Offer</p>
-            </div>
 
             <div className="flex-1 min-h-0 w-full max-w-full mx-auto flex flex-col overflow-y-auto scrollbar-hide px-4">
               <div className="flex items-center gap-2 mb-4 shrink-0">
