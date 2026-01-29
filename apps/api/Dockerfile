@@ -13,12 +13,14 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/admin/package.json apps/admin/
 
-# Disable postinstall script in apps/api/package.json to prevent prisma generate from running during pnpm install
-# Using node script for reliable JSON modification
-RUN node -e "const fs = require('fs'); const path = 'apps/api/package.json'; const pkg = JSON.parse(fs.readFileSync(path, 'utf8')); if (pkg.scripts && pkg.scripts.postinstall) { pkg.scripts.postinstall = 'echo skipping prisma generate'; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)); }"
+# Copy prisma schema directory early to satisfy postinstall script
+COPY apps/api/prisma ./apps/api/prisma/
 
 # Install dependencies
-RUN pnpm install
+# Set PRISMA_SKIP_POSTINSTALL_GENERATE=true to skip prisma generate during install
+# We also use --ignore-scripts as a fallback
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+RUN pnpm install --ignore-scripts
 
 # Copy source code
 COPY . .
