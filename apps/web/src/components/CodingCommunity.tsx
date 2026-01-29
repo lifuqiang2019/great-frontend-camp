@@ -170,6 +170,8 @@ interface CodingCommunityProps {
   onCloseFavorites?: () => void;
   initialQuestionId?: string;
   onQuestionSelect?: (id: string | null) => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 const QuestionListItem = ({ 
@@ -218,7 +220,9 @@ export default function CodingCommunity({
   viewMode = 'default', 
   onCloseFavorites, 
   initialQuestionId,
-  onQuestionSelect
+  onQuestionSelect,
+  searchQuery: externalSearchQuery,
+  onSearchChange
 }: CodingCommunityProps) {
   const { data: session } = useSession();
   const [hotLimit, setHotLimit] = useState(10);
@@ -243,7 +247,12 @@ export default function CodingCommunity({
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>(['hot']);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
+  
+  // Use external search query if provided, otherwise use internal
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const setSearchQuery = onSearchChange || setInternalSearchQuery;
+
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [solutionHtml, setSolutionHtml] = useState('');
   const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
@@ -719,24 +728,8 @@ export default function CodingCommunity({
 
       {/* Sidebar */}
       <div className="w-[320px] bg-neutral-white flex flex-col shadow-[0_4px_12px_rgba(45,31,31,0.03)] h-full overflow-hidden rounded-xl border border-primary-100 shrink-0">
-        <div className="p-4 flex flex-col gap-[15px] relative after:content-[''] after:block after:w-[80%] after:h-[1px] after:bg-primary-100 after:mx-auto after:mt-[5px]">
-          <div className="flex items-center">
-            <div className="flex-1 min-w-0 relative flex items-center">
-              <i className="absolute left-3 text-primary-300 flex items-center pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              </i>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索题目..."
-                className="w-full box-border py-[10px] pr-3 pl-9 border border-primary-200 rounded-lg text-sm transition-all outline-none bg-primary-50 text-primary-700 focus:border-accent-copper focus:bg-neutral-white focus:shadow-[0_0_0_2px_rgba(205,133,63,0.1)]"
-              />
-            </div>
-          </div>
-        </div>
         
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-[10px] m-0 pt-0">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-[10px] m-0 pt-3">
           {isLoading ? (
             <div className="p-4 text-center text-primary-400 text-sm">加载中...</div>
           ) : (searchQuery || viewMode === 'favorites-only') ? (
@@ -768,15 +761,22 @@ export default function CodingCommunity({
             <div className="flex flex-col">
               <div className="px-3 pb-2 pt-0">
                 {/* Hot Questions Category */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 p-2 px-3 rounded-lg text-sm font-medium text-primary-900 bg-primary-50/50">
-                    <div className="flex items-center gap-2 flex-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500"><path d="M12 2a5 5 0 0 1 3.5 1.5 5 5 0 0 1 1 3.5v.5c0 3.5-2.5 6-5.5 6S5.5 11 5.5 7.5v-.5a5 5 0 0 1 1-3.5A5 5 0 0 1 12 2z"></path><path d="M12 14c-4 0-6 2-6 5v2h12v-2c0-3-2-5-6-5z"></path><path d="M12 2v.5"></path><path d="M15.5 5.5l.5-.5"></path><path d="M8.5 5.5l-.5-.5"></path></svg>
-                      <span>热门题目</span>
+                <div className="mb-6">
+                  <div className="flex items-center gap-2.5 px-2 py-3 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="transform transition-transform hover:scale-110">
+                        <path d="M12 2a5 5 0 0 1 3.5 1.5 5 5 0 0 1 1 3.5v.5c0 3.5-2.5 6-5.5 6S5.5 11 5.5 7.5v-.5a5 5 0 0 1 1-3.5A5 5 0 0 1 12 2z"></path>
+                        <path d="M12 14c-4 0-6 2-6 5v2h12v-2c0-3-2-5-6-5z"></path>
+                        <path d="M12 2v.5"></path>
+                        <path d="M15.5 5.5l.5-.5"></path>
+                        <path d="M8.5 5.5l-.5-.5"></path>
+                      </svg>
                     </div>
+                    <span className="text-[15px] font-bold text-gray-800 tracking-tight">热门题目</span>
+                    <span className="ml-auto text-[10px] font-medium text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">TOP 20</span>
                   </div>
                   
-                  <div className="px-1 mt-1 relative">
+                  <div className="px-1 mt-1 relative space-y-1">
                     {hotQuestions.map((item, index) => (
                       <QuestionListItem 
                         key={`hot-${item.id}`}

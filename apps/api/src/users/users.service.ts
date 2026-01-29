@@ -16,6 +16,12 @@ export class UsersService {
     });
   }
 
+  async remove(id: string) {
+    return this.prisma.user.delete({
+      where: { id },
+    });
+  }
+
   async findAll() {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: "desc" },

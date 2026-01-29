@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Space, Table, Typography, message } from "antd";
+import { Button, Space, Table, Typography, message, Popconfirm } from "antd";
 import http from "../../lib/request";
 
 type UserRow = {
@@ -31,6 +31,17 @@ export function UsersPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      await http.delete(`/users/${id}`);
+      message.success("删除成功");
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      message.error("删除失败");
+    }
+  };
+
   return (
     <div>
       <Space style={{ width: "100%", justifyContent: "space-between" }}>
@@ -57,6 +68,23 @@ export function UsersPage() {
             title: "创建时间", 
             dataIndex: "createdAt",
             render: (date: string) => new Date(date).toLocaleString()
+          },
+          {
+            title: "操作",
+            key: "action",
+            render: (_, record) => (
+              <Popconfirm
+                title="确定要删除该用户吗？"
+                description="删除后无法恢复"
+                onConfirm={() => handleDelete(record.id)}
+                okText="确定"
+                cancelText="取消"
+              >
+                <Button type="link" danger>
+                  删除
+                </Button>
+              </Popconfirm>
+            ),
           },
         ]}
       />
