@@ -21,7 +21,8 @@ COPY . .
 
 # Generate Prisma Client
 # Ensure we have the correct engines for alpine
-RUN cd apps/api && npx prisma generate
+# The prisma schema is located at apps/api/prisma/schema.prisma
+RUN cd apps/api && npx prisma generate --schema=prisma/schema.prisma
 
 # Build the server
 RUN cd apps/api && pnpm run build
