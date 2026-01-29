@@ -146,12 +146,12 @@ const MermaidContent = React.memo(({ html, className }: { html: string; classNam
 
 MermaidContent.displayName = 'MermaidContent';
 
-interface Category {
+export interface Category {
   id: string;
   name: string;
 }
 
-interface QuestionItem {
+export interface QuestionItem {
   id: string;
   title: string;
   content?: string;
@@ -172,6 +172,8 @@ interface CodingCommunityProps {
   onQuestionSelect?: (id: string | null) => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  questions?: QuestionItem[];
+  categories?: Category[];
 }
 
 const QuestionListItem = ({ 
@@ -222,7 +224,9 @@ export default function CodingCommunity({
   initialQuestionId,
   onQuestionSelect,
   searchQuery: externalSearchQuery,
-  onSearchChange
+  onSearchChange,
+  questions: propQuestions,
+  categories: propCategories
 }: CodingCommunityProps) {
   const { data: session } = useSession();
   const [hotLimit, setHotLimit] = useState(10);
@@ -244,8 +248,11 @@ export default function CodingCommunity({
     fetchConfig();
   }, []);
 
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [internalQuestions, setInternalQuestions] = useState<QuestionItem[]>([]);
+  const [internalCategories, setInternalCategories] = useState<Category[]>([]);
+  
+  const questions = propQuestions || internalQuestions;
+  const categories = propCategories || internalCategories;
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>(['hot']);
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   
@@ -488,14 +495,19 @@ export default function CodingCommunity({
 
 
   useEffect(() => {
+    if (propQuestions && propCategories) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [questionsData, categoriesData] = await Promise.all([
           api.get<QuestionItem[]>('/questions'),
           api.get<Category[]>('/questions/categories')
         ]);
-        setQuestions(questionsData);
-        setCategories(categoriesData);
+        setInternalQuestions(questionsData);
+        setInternalCategories(categoriesData);
         // Expand all categories by default, including 'hot'
         setExpandedCategoryIds(['hot', ...categoriesData.map(c => c.id)]);
       } catch (error) {
@@ -506,7 +518,14 @@ export default function CodingCommunity({
     };
 
     fetchData();
-  }, []);
+  }, [propQuestions, propCategories]);
+
+  // Sync expanded categories when props change
+  useEffect(() => {
+    if (propCategories && propCategories.length > 0 && expandedCategoryIds.length === 1 && expandedCategoryIds[0] === 'hot') {
+      setExpandedCategoryIds(['hot', ...propCategories.map(c => c.id)]);
+    }
+  }, [propCategories]);
 
 
   const toggleCategory = (categoryId: string) => {
@@ -729,7 +748,7 @@ export default function CodingCommunity({
       {/* Sidebar */}
       <div className="w-[320px] bg-neutral-white flex flex-col shadow-[0_4px_12px_rgba(45,31,31,0.03)] h-full overflow-hidden rounded-xl border border-primary-100 shrink-0">
         
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-[10px] m-0 pt-3">
+        <div className="flex-1 overflow-y-auto p-[10px] m-0 pt-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full">
           {isLoading ? (
             <div className="p-4 text-center text-primary-400 text-sm">加载中...</div>
           ) : (searchQuery || viewMode === 'favorites-only') ? (

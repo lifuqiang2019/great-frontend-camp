@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import CodingCommunity from '@/components/CodingCommunity';
+import CodingCommunity, { QuestionItem, Category } from '@/components/CodingCommunity';
+import { api } from '@/lib/request';
 import StudentCamp from '@/components/StudentCamp';
 import Home from '@/components/Home';
 import LoginModal from '@/components/LoginModal';
@@ -17,6 +18,13 @@ interface MainPageProps {
 export default function MainPage({ initialTab = '面试题库', initialQuestionId, serverGreetingConfig }: MainPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set([initialTab]));
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setVisitedTabs(prev => new Set(prev).add(initialTab));
+  }, [initialTab]);
+
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
   const [communityKey, setCommunityKey] = useState(0);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -25,11 +33,39 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session } = useSession();
+  
+  // Data for search and CodingCommunity
+  const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [questionsData, categoriesData] = await Promise.all([
+          api.get<QuestionItem[]>('/questions'),
+          api.get<Category[]>('/questions/categories')
+        ]);
+        setQuestions(questionsData);
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const filteredSearchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    return questions.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [questions, searchQuery]);
+
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   
   // Search Box Animations
   const [searchPlaceholder, setSearchPlaceholder] = useState('');
   const [isSearchIconAnimating, setIsSearchIconAnimating] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   // Typewriter effect logic
   useEffect(() => {
@@ -116,12 +152,6 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     return () => clearInterval(interval);
   }, []);
 
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set([initialTab]));
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-    setVisitedTabs(prev => new Set(prev).add(initialTab));
-  }, [initialTab]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -141,16 +171,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const handleTabChange = (tabName: string, url: string) => {
-    if (tabName === activeTab) return;
-    
-    // Update State
-    setActiveTab(tabName);
-    setVisitedTabs(prev => new Set(prev).add(tabName));
-    
-    // Update URL without full reload
-    window.history.pushState({}, '', url);
-  };
+
 
   useEffect(() => {
     setCurrentQuestionId(initialQuestionId);
@@ -192,6 +213,18 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     return () => clearInterval(timer);
   }, []);
 
+  const handleTabChange = (tab: string, url?: string) => {
+    setActiveTab(tab);
+    setVisitedTabs(prev => {
+      const newSet = new Set(prev);
+      newSet.add(tab);
+      return newSet;
+    });
+    if (url) {
+      window.history.pushState({}, '', url);
+    }
+  };
+
   const getGreeting = (date: Date) => {
     const hour = date.getHours();
     let text = '';
@@ -215,6 +248,19 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutsideSearch(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutsideSearch);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideSearch);
     };
   }, []);
 
@@ -310,7 +356,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
           {/* Search Box */}
           <div className="flex-1 max-w-md mx-auto px-4 hidden md:block">
-            <div className="relative group">
+            <div className="relative group" ref={searchContainerRef}>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                 <svg 
                   className={`h-5 w-5 text-primary-400 group-focus-within:text-accent-gold transition-all duration-300 ${isSearchIconAnimating ? 'scale-125 text-accent-gold' : ''}`} 
@@ -330,20 +376,60 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (activeTab !== '面试题库' && e.target.value) {
-                     handleTabChange('面试题库', '/');
-                  }
+                  setIsSearchFocused(true);
                 }}
+                onFocus={() => setIsSearchFocused(true)}
               />
-              {searchQuery && (
-                <div 
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary-500 hover:text-accent-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
+              {searchQuery && isSearchFocused && (
+                <>
+                  <div 
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsSearchFocused(true);
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary-500 hover:text-accent-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  
+                  {/* Search Dropdown Results */}
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-white rounded-xl shadow-xl border border-primary-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 py-1">
+                    <div className="max-h-96 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-primary-300">
+                     {filteredSearchResults.length > 0 ? (
+                        <ul className="">
+                          {filteredSearchResults.map(q => (
+                             <li 
+                               key={q.id}
+                               className="px-4 py-3 hover:bg-primary-50 cursor-pointer border-b border-primary-50 last:border-none transition-colors group/item"
+                               onClick={() => {
+                                 setSearchQuery('');
+                                 setIsSearchFocused(false);
+                                 setCurrentQuestionId(q.id);
+                                 handleTabChange('面试题库', `/questions/${q.id}`);
+                               }}
+                             >
+                               <div className="flex items-center justify-between">
+                                 <div className="text-sm font-medium text-primary-900 truncate group-hover/item:text-accent-copper transition-colors">{q.title}</div>
+                                 <span className="text-[10px] text-primary-400 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100 whitespace-nowrap ml-2">
+                                   {categories.find(c => c.id === q.categoryId)?.name || '未分类'}
+                                 </span>
+                               </div>
+                             </li>
+                          ))}
+                        </ul>
+                     ) : (
+                        <div className="p-8 text-center flex flex-col items-center justify-center text-primary-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <span className="text-sm">未找到相关内容</span>
+                        </div>
+                     )}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -459,8 +545,8 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
             viewMode="default"
             initialQuestionId={currentQuestionId}
             onQuestionSelect={(id) => setCurrentQuestionId(id || undefined)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            questions={questions}
+            categories={categories}
           />
         </div>
         
