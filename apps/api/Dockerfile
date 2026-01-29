@@ -10,9 +10,12 @@ COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 
 # Copy app package files
 COPY apps/api/package.json apps/api/
-COPY apps/api/prisma ./apps/api/prisma/
 COPY apps/web/package.json apps/web/
 COPY apps/admin/package.json apps/admin/
+
+# Disable postinstall script in apps/api/package.json to prevent prisma generate from running during pnpm install
+# This is necessary because the prisma schema is not yet available
+RUN sed -i 's/"postinstall": "prisma generate"/"postinstall": "echo skipping prisma generate"/' apps/api/package.json
 
 # Install dependencies
 RUN pnpm install
