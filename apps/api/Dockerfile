@@ -14,6 +14,9 @@ COPY apps/web/package.json apps/web/
 COPY apps/admin/package.json apps/admin/
 
 # Install dependencies
+# Set PRISMA_SKIP_POSTINSTALL_GENERATE=true to avoid running prisma generate during install
+# because the schema file is not yet copied at this stage
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN pnpm install
 
 # Copy source code
