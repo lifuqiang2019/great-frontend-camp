@@ -170,6 +170,7 @@ main:
           image: alpine:latest
           script:
             - echo "开始部署容器到服务器..."
+            - echo "DEBUG: GITHUB_CLIENT_ID is ${GITHUB_CLIENT_ID:0:5}***"
             - apk add --no-cache openssh-client
             - mkdir -p ~/.ssh
             - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
