@@ -809,7 +809,7 @@ export default function CodingCommunity({
                   </div>
                 </div>
 
-                {categories.map(category => {
+                {categories.map((category) => {
                   const categoryQuestions = groupedQuestions[category.id] || [];
                   const isExpanded = expandedCategoryIds.includes(category.id);
                   const isActiveCategory = selectedQuestion?.categoryId === category.id;
@@ -820,26 +820,43 @@ export default function CodingCommunity({
                     <div key={category.id} className="mb-1">
                       <div 
                         onClick={() => toggleCategory(category.id)}
-                        className={`flex items-center gap-2 p-2 px-3 cursor-pointer rounded-lg transition-colors text-sm group ${
-                          isActiveCategory && !selectedQuestion 
-                            ? 'text-primary-900 bg-primary-50 font-medium' 
-                            : 'text-primary-700 hover:bg-gray-50'
-                        }`}
+                        className={`
+                          flex items-center justify-between px-3 py-3 cursor-pointer rounded-lg transition-all duration-200 group select-none
+                          ${isExpanded 
+                            ? 'bg-gray-100 text-gray-900' 
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }
+                        `}
                       >
-                         <svg 
-                          className={`w-3.5 h-3.5 text-primary-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
-                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                        <span className="flex-1">{category.name}</span>
-                        <span className="text-xs text-primary-300 bg-white px-1.5 py-0.5 rounded border border-primary-100 group-hover:border-primary-200 transition-colors">
-                          {categoryQuestions.length}
-                        </span>
+                         <div className="flex items-center gap-3 min-w-0">
+                            {/* Decorative Dot (Only visible when expanded) */}
+                            <div className={`
+                               w-1.5 h-1.5 rounded-full transition-all duration-300 shrink-0
+                               ${isExpanded ? 'bg-primary-500 scale-100' : 'bg-transparent scale-0 w-0'}
+                            `} />
+
+                            <span className={`text-[14px] tracking-tight truncate transition-all duration-200 ${isExpanded ? 'font-bold' : 'font-medium'}`}>
+                              {category.name}
+                            </span>
+                         </div>
+
+                         <div className="flex items-center gap-3">
+                            <span className={`text-[12px] font-medium transition-colors ${
+                              isExpanded ? 'text-gray-500' : 'text-gray-300 group-hover:text-gray-400'
+                            }`}>
+                               {categoryQuestions.length}
+                            </span>
+                            <svg 
+                              className={`w-3.5 h-3.5 transition-transform duration-300 ${isExpanded ? 'rotate-90 text-gray-600' : 'text-gray-300 group-hover:text-gray-500'}`} 
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                            >
+                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                         </div>
                       </div>
                       
                       {isExpanded && (
-                        <div className="px-1 mt-1 relative">
+                        <div className="mt-1 relative px-1 space-y-0.5 animate-in slide-in-from-top-1 fade-in duration-200">
                           {categoryQuestions.map((item, index) => (
                             <QuestionListItem 
                               key={item.id} 
@@ -866,15 +883,18 @@ export default function CodingCommunity({
           <>
             <div className="flex items-center justify-between px-8 py-4 border-b border-primary-100 bg-neutral-white">
               <div className="flex items-center gap-4">
-                 <button 
+                <button 
                   onClick={() => {
                     setSelectedQuestion(null);
                     window.history.pushState({}, '', '/questions');
                   }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full text-primary-400 hover:text-primary-700 hover:bg-primary-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-primary-500 hover:text-primary-800 hover:bg-white hover:shadow-sm transition-all duration-200 border border-transparent hover:border-primary-100 group"
                   title="返回首页"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                  <div className="w-6 h-6 rounded-md bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transform group-hover:-translate-x-0.5 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                  </div>
+                  <span className="text-sm font-medium">返回列表</span>
                 </button>
                 <div className="flex p-1.5 bg-primary-50 rounded-xl">
                 <button
@@ -1024,7 +1044,7 @@ export default function CodingCommunity({
               </div>
               
               {/* Top Cards */}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 mb-6 shrink-0">
+              <div className="grid grid-cols-4 grid-rows-2 gap-4 mb-6 flex-1 min-w-[800px] min-h-[600px]">
                 {hotQuestions.slice(0, 5).map((item, index) => {
                   const isTop1 = index === 0;
                   const isTop2 = index === 1;
@@ -1037,11 +1057,11 @@ export default function CodingCommunity({
                     onMouseEnter={() => setHoveredQuestionId(item.id)}
                     onMouseLeave={() => setHoveredQuestionId(null)}
                     className={`
-                      relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between h-[280px]
-                      ${isTop1 ? 'md:col-span-2 md:row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50 h-[580px]' : ''}
-                      ${isTop2 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40' : ''}
-                      ${isTop3 ? 'md:col-span-1 md:row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40' : ''}
-                      ${index > 2 ? 'bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md' : ''}
+                      relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between
+                      ${isTop1 ? 'col-span-2 row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50' : ''}
+                      ${isTop2 ? 'col-span-1 row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40' : ''}
+                      ${isTop3 ? 'col-span-1 row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40' : ''}
+                      ${index > 2 ? 'col-span-1 row-span-1 bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md' : ''}
                     `}
                   >
 
