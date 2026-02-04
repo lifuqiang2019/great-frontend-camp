@@ -1,313 +1,496 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Zap, Workflow, Rocket, Shield, 
+  ArrowRight, Briefcase, FileText, 
+  Target, Calendar, Share2, MessageCircle,
+  Flame, Gem, BookOpen, ArrowUp, BrainCircuit,
+  Database, Cpu, Code2, Layers, Bot, GraduationCap
+} from 'lucide-react';
 
 const StudentCamp = () => {
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrError, setQrError] = useState(false);
+  const [activePhase, setActivePhase] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      setShowScrollTop(container.scrollTop > 600);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Updated Data Structure based on User Request - Single Comprehensive Roadmap
+  const AI_SYLLABUS = [
+    {
+      phase: "Phase 1: 夯实基础",
+      color: "from-blue-500 to-cyan-500",
+      items: [
+        { 
+          title: "前置知识体系", 
+          desc: "Python/Git/Docker 必备工程化基石",
+          icon: <Code2 className="w-6 h-6" />,
+          submodules: [
+            { name: "Python 进阶", content: "装饰器 / 生成器 / 上下文管理器 / Pydantic 类型校验" },
+            { name: "工程化基石", content: "Git Flow 工作流 / Docker 容器编排 / Linux 常用指令" },
+            { name: "数据科学栈", content: "NumPy 向量化运算 / Pandas 数据清洗 / Matplotlib 可视化" }
+          ]
+        },
+        { 
+          title: "大模型应用基础", 
+          desc: "Prompt Engineering 与 API 核心",
+          icon: <MessageCircle className="w-6 h-6" />,
+          submodules: [
+            { name: "Prompt Engineering", content: "COT 思维链 / TOT 思维树 / Few-shot Learning" },
+            { name: "API 实战", content: "OpenAI 接口规范 / Stream 流式响应 / Function Calling" },
+            { name: "核心概念", content: "Token 计算与成本 / Embedding 向量表征 / 温度系数调优" }
+          ]
+        },
+        { 
+          title: "大模型开发框架实战", 
+          desc: "LangChain 与 Semantic Kernel 深度应用",
+          icon: <Layers className="w-6 h-6" />,
+          submodules: [
+            { name: "LangChain 核心", content: "Chains 链式调用 / LCEL 表达式 / Memory 记忆组件" },
+            { name: "LlamaIndex", content: "Data Loaders / Indexing 策略 / Query Engines" },
+            { name: "Semantic Kernel", content: "Plugins 插件体系 / Planners 规划器 / Skills" }
+          ]
+        }
+      ]
+    },
+    {
+      phase: "Phase 2: 核心进阶",
+      color: "from-amber-500 to-orange-500",
+      items: [
+        { 
+          title: "RAG 开发实战", 
+          desc: "企业级知识库与检索增强生成",
+          icon: <Database className="w-6 h-6" />,
+          submodules: [
+            { name: "数据处理", content: "PDF/Markdown 解析 / Recursive Character Splitter 切分" },
+            { name: "检索增强", content: "向量数据库 (Milvus/Pinecone) / 混合检索 (Hybrid Search)" },
+            { name: "高级优化", content: "Rerank 重排序 / Parent Document Retriever / Multi-query" }
+          ]
+        },
+        { 
+          title: "Agent 开发实战", 
+          desc: "构建自主决策的智能体系统",
+          icon: <Bot className="w-6 h-6" />,
+          submodules: [
+            { name: "推理模式", content: "ReAct 框架 / Plan-and-Solve / Self-Reflection" },
+            { name: "工具调用", content: "OpenAPI Spec / Tool Use 错误处理 / Human-in-the-loop" },
+            { name: "多智能体", content: "AutoGen 协作模式 / CrewAI 角色编排 / 状态共享" }
+          ]
+        },
+        { 
+          title: "大模型微调实战", 
+          desc: "打造垂直领域的专属模型",
+          icon: <Cpu className="w-6 h-6" />,
+          submodules: [
+            { name: "微调方法", content: "SFT 指令微调 / LoRA 低秩适应 / QLoRA 量化微调" },
+            { name: "数据工程", content: "Self-Instruct 数据生成 / 数据清洗与去重 / 格式转换" },
+            { name: "训练实战", content: "HuggingFace Transformers / PEFT 库 / Loss 曲线分析" }
+          ]
+        }
+      ]
+    },
+    {
+      phase: "Phase 3: 深度与落地",
+      color: "from-purple-500 to-pink-500",
+      items: [
+        { 
+          title: "大模型实战工具", 
+          desc: "部署、监控与评估全链路",
+          icon: <Workflow className="w-6 h-6" />,
+          submodules: [
+            { name: "部署运维", content: "Ollama 本地部署 / vLLM 推理加速 / TGI 服务化" },
+            { name: "监控评估", content: "LangSmith 链路追踪 / LangFuse 成本监控 / RAGAS 评分" },
+            { name: "工程效能", content: "Prompt Management / Dataset Versioning / A/B Testing" }
+          ]
+        },
+        { 
+          title: "项目综合实战", 
+          desc: "真实场景下的完整应用开发",
+          icon: <Briefcase className="w-6 h-6" />,
+          submodules: [
+            { name: "垂直领域 RAG", content: "法律/医疗文档问答 / 引用源溯源 / 意图识别" },
+            { name: "Code Agent", content: "本地文件系统操作 / 代码生成与执行 / 自动化测试" },
+            { name: "多模态助手", content: "语音识别 (Whisper) / 图像理解 (GPT-4V) / 实时交互" }
+          ]
+        },
+        { 
+          title: "进阶：AI 算法基础", 
+          desc: "知其然，更知其所以然",
+          icon: <BrainCircuit className="w-6 h-6" />,
+          submodules: [
+            { name: "Transformer", content: "Self-Attention 机制 / Multi-head Attention / FFN" },
+            { name: "架构演进", content: "BERT (Encoder) / GPT (Decoder) / T5 (Enc-Dec)" },
+            { name: "底层原理", content: "Backpropagation / Positional Encoding / LayerNorm" }
+          ]
+        }
+      ]
+    }
+  ];
+
+  const scrollToTop = () => {
+    containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-50 overflow-y-auto">
+    <div ref={containerRef} className="flex flex-col h-full bg-neutral-white overflow-y-auto relative scroll-smooth custom-scrollbar">
       {/* Hero Section */}
-      <div className="relative bg-primary-900 text-white py-20 px-6 sm:px-12 overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-accent-gold/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-700/30 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
+      <div className="relative bg-primary-900 text-white py-24 px-6 sm:px-12 overflow-hidden shrink-0 isolate">
+        {/* Modern Grid Background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+        
+        {/* Spotlight Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-primary-500/20 rounded-[100%] blur-[100px] -z-10"></div>
+        <div className="absolute bottom-0 right-0 w-[800px] h-[400px] bg-accent-gold/10 rounded-[100%] blur-[100px] -z-10"></div>
         
         <div className="relative z-10 max-w-5xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-6 leading-tight">
-            大前端<span className="text-accent-gold">同学营</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-accent-gold mb-8 animate-fade-in-up">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-gold opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-copper"></span>
+            </span>
+            前端人的技术避风港
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-tight drop-shadow-2xl">
+            大前端<span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-gold via-accent-copper to-primary-400">同学营</span>
           </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto font-light">
-            不仅仅是 Coding。这里是前端人的技术避风港，<br className="hidden md:block" />一起开源，一起成长，拒绝焦虑。
+          
+          <p className="text-xl md:text-2xl text-primary-200 mb-12 max-w-3xl mx-auto font-light leading-relaxed">
+            不仅仅是 Coding。这里是<span className="text-white font-medium">拒绝焦虑</span>的开源社区，<br className="hidden md:block" />
+            与 <span className="text-accent-gold">500+</span> 伙伴一起，构建你的技术护城河。
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+
+          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center mb-16">
             <button 
               onClick={() => setShowQRCode(true)}
-              className="bg-accent-gold hover:bg-[#eac14d] text-primary-900 font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 text-lg flex items-center gap-2"
+              className="group relative px-8 py-4 bg-white text-primary-900 font-bold rounded-full shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all transform hover:-translate-y-1 text-lg flex items-center gap-3 overflow-hidden"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:animate-shimmer"></span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent-copper" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               立即加入交流群
             </button>
-            <button className="bg-primary-800/50 hover:bg-primary-800 text-white font-medium py-3 px-8 rounded-full border border-primary-700 hover:border-accent-gold/50 transition-all text-lg backdrop-blur-sm">
-              了解更多权益
+            <button className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-full border border-white/10 hover:border-white/30 transition-all text-lg backdrop-blur-sm flex items-center gap-2 group">
+              探索权益
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             </button>
           </div>
           
-          <div className="mt-12 flex justify-center gap-8 text-sm text-gray-400">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span>500+ 在线交流</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent-gold"></div>
-              <span>大厂导师坐镇</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <span>每周技术分享</span>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {[
+              { label: "在线活跃伙伴", val: "500+", icon: <Flame className="w-6 h-6 text-accent-copper" />, color: "text-accent-copper" },
+              { label: "大厂导师坐镇", val: "Top 5", icon: <Gem className="w-6 h-6 text-accent-blue" />, color: "text-accent-blue" },
+              { label: "沉淀技术资源", val: "100GB+", icon: <BookOpen className="w-6 h-6 text-accent-sage" />, color: "text-accent-sage" }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex items-center justify-center gap-4 hover:bg-white/10 transition-colors cursor-default">
+                <div className="p-2 bg-white/5 rounded-lg border border-white/5 shadow-inner">
+                  {stat.icon}
+                </div>
+                <div className="text-left">
+                  <div className={`text-xl font-bold ${stat.color} font-mono`}>{stat.val}</div>
+                  <div className="text-xs text-primary-300 font-medium tracking-wider uppercase">{stat.label}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-16 w-full">
-        {/* Partners / Sponsors Section */}
-        <div className="mb-20 overflow-hidden">
-          <p className="text-center text-gray-500 text-sm mb-8 tracking-wider uppercase font-medium">Trusted by teams at</p>
-          
-          <div className="relative w-full overflow-hidden mask-linear-fade flex flex-col gap-8">
-            <div className="flex w-max animate-marquee items-center gap-16">
-              {[
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-              ].map((partner, idx) => (
-                <div key={idx} className="flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity grayscale hover:grayscale-0 cursor-pointer">
-                  <img src={partner.logo} alt={partner.name} className="h-8 w-auto" />
-                  <span className="font-bold text-lg text-primary-800 hidden sm:block">{partner.name}</span>
-                </div>
-              ))}
-            </div>
+      <div className="max-w-7xl mx-auto px-6 py-12 w-full flex-1">
+        
+        {/* AI Full Stack Development Section - Completely Redesigned */}
+        <div className="mb-32">
+           <div className="text-center mb-16">
+              <span className="inline-block py-1 px-3 rounded-full bg-black/5 text-black font-bold text-xs tracking-widest uppercase mb-4">2025 Roadmap</span>
+              <h2 className="text-4xl md:text-6xl font-black text-primary-900 tracking-tight mb-6">
+                AI 全栈开发 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">实战路线</span>
+              </h2>
+              <p className="text-xl text-primary-500 max-w-3xl mx-auto leading-relaxed">
+                从 Prompt Engineering 到 Agent 落地，我们不讲概念，只讲代码。
+                <br className="hidden md:block"/>
+                这是一条通往 <span className="font-bold text-primary-900">Next-Gen Developer</span> 的完整进化路径。
+              </p>
+           </div>
 
-            <div className="flex w-max animate-marquee items-center gap-16 ml-8">
-              {[
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-                { name: "Vercel", logo: "/vercel.svg" },
-                { name: "Next.js", logo: "/next.svg" },
-                { name: "Global Tech", logo: "/globe.svg" },
-                { name: "Window OS", logo: "/window.svg" },
-                { name: "File Sys", logo: "/file.svg" },
-              ].map((partner, idx) => (
-                <div key={idx} className="flex items-center gap-3 opacity-50 hover:opacity-100 transition-opacity grayscale hover:grayscale-0 cursor-pointer">
-                  <img src={partner.logo} alt={partner.name} className="h-8 w-auto" />
-                  <span className="font-bold text-lg text-primary-800 hidden sm:block">{partner.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Value Proposition Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-          {[
-            {
-              title: "大咖答疑",
-              desc: "来自字节、阿里等一线大厂导师在线解答，拒绝难题卡关，让成长少走弯路。",
-              icon: (
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-              ),
-              color: "from-blue-500 to-blue-600"
-            },
-            {
-              title: "相互学习",
-              desc: "活跃的技术氛围，定期的代码 Review 活动，与优秀的伙伴一起，共同进步。",
-              icon: (
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ),
-              color: "from-purple-500 to-purple-600"
-            },
-            {
-              title: "资源共享",
-              desc: "独家面试资料、内推机会一手掌握，紧跟技术前沿，不错过每一个机会。",
-              icon: (
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              ),
-              color: "from-emerald-500 to-emerald-600"
-            }
-          ].map((item, idx) => (
-            <div key={idx} className="bg-white rounded-2xl p-8 shadow-md hover:shadow-xl transition-all hover:-translate-y-1 border border-gray-100 group">
-              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
-                {item.icon}
+           {/* Syllabus Tabbed Interface */}
+           <div className="relative max-w-7xl mx-auto px-4 md:px-0">
+              {/* Tab Navigation */}
+              <div className="flex flex-col md:flex-row justify-center gap-4 mb-16">
+                 {AI_SYLLABUS.map((phase, idx) => {
+                    const isActive = activePhase === idx;
+                    return (
+                       <button
+                          key={idx}
+                          onClick={() => setActivePhase(idx)}
+                          className={`relative group px-8 py-4 rounded-2xl transition-all duration-300 border ${
+                             isActive 
+                                ? 'bg-white border-primary-200 shadow-xl scale-105 z-10' 
+                                : 'bg-white/50 border-transparent hover:bg-white hover:border-primary-100 hover:shadow-lg'
+                          }`}
+                       >
+                          <div className="flex items-center gap-3">
+                             <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                                isActive ? `bg-gradient-to-r ${phase.color} text-white` : 'bg-primary-100 text-primary-400 group-hover:bg-primary-200'
+                             }`}>
+                                <span className="font-black text-lg">{idx + 1}</span>
+                             </div>
+                             <div className="text-left">
+                                <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${isActive ? 'text-primary-500' : 'text-primary-400'}`}>
+                                   Phase {idx + 1}
+                                </div>
+                                <div className={`text-lg font-bold ${isActive ? 'text-primary-900' : 'text-primary-600'}`}>
+                                   {phase.phase.split(': ')[1]}
+                                </div>
+                             </div>
+                          </div>
+                          {isActive && (
+                             <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-gradient-to-r ${phase.color} rounded-t-full`}></div>
+                          )}
+                       </button>
+                    );
+                 })}
               </div>
-              <h3 className="text-xl font-bold text-primary-900 mb-3">{item.title}</h3>
-              <p className="text-gray-600 leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
+
+              {/* Active Phase Content */}
+              <div className="relative min-h-[500px]">
+                 {AI_SYLLABUS.map((phase, phaseIdx) => (
+                    <div 
+                       key={phaseIdx} 
+                       className={`transition-all duration-500 absolute inset-0 ${
+                          activePhase === phaseIdx 
+                             ? 'opacity-100 translate-y-0 z-10 relative' 
+                             : 'opacity-0 translate-y-8 z-0 absolute pointer-events-none'
+                       }`}
+                    >
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {phase.items.map((item, itemIdx) => {
+                             const globalIdx = phaseIdx * 3 + itemIdx + 1;
+                             
+                             return (
+                                <div key={itemIdx} className="group relative bg-white rounded-2xl p-6 border border-primary-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 hover:-translate-y-1 flex flex-col h-full">
+                                   {/* Top Decoration */}
+                                   <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${phase.color} opacity-0 group-hover:opacity-100 transition-opacity rounded-t-2xl`}></div>
+                                   
+                                   {/* Header */}
+                                   <div className="flex items-start justify-between mb-6">
+                                      <div className={`shrink-0 w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                                         <div className={`${phase.color.split(' ')[0].replace('from-', 'text-')}`}>
+                                            {item.icon}
+                                         </div>
+                                      </div>
+                                      <div className="text-4xl font-black text-primary-100 select-none">
+                                         {globalIdx.toString().padStart(2, '0')}
+                                      </div>
+                                   </div>
+
+                                   {/* Title & Desc */}
+                                   <div className="mb-6">
+                                      <h4 className="text-xl font-bold text-primary-900 mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-primary-900 group-hover:to-primary-700 transition-colors">
+                                         {item.title}
+                                      </h4>
+                                      <p className="text-sm text-primary-500 leading-relaxed min-h-[40px]">
+                                         {item.desc}
+                                      </p>
+                                   </div>
+
+                                   {/* Submodules List */}
+                                   <div className="space-y-3 flex-1">
+                                      {item.submodules.map((module, mIdx) => (
+                                         <div key={mIdx} className="bg-primary-50/50 rounded-lg p-3 border border-primary-100/50 group-hover:bg-white group-hover:border-primary-200 group-hover:shadow-sm transition-all">
+                                            <div className="font-bold text-xs text-primary-800 mb-1 flex items-center gap-1.5">
+                                               <span className={`w-1 h-1 rounded-full bg-gradient-to-r ${phase.color}`}></span>
+                                               {module.name}
+                                            </div>
+                                            <div className="text-[11px] text-primary-500 leading-relaxed pl-2.5 border-l border-primary-200">
+                                               {module.content}
+                                            </div>
+                                         </div>
+                                      ))}
+                                   </div>
+                                </div>
+                             );
+                          })}
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
         </div>
 
-        {/* Active Study Groups */}
-        <div className="mb-20">
-          <h2 className="text-2xl font-bold text-primary-900 flex items-center gap-2 mb-8">
-            <span className="w-1.5 h-8 bg-blue-500 rounded-full"></span>
-            活跃学习小组
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-             {[
-               { title: "算法刷题组", desc: "每日一题，拒绝摆烂。LeetCode 300 题突击。", users: 128, color: "bg-orange-100 text-orange-600" },
-               { title: "Vue3 源码读写", desc: "深入响应式原理，尝试手写 mini-vue。", users: 85, color: "bg-green-100 text-green-600" },
-               { title: "Rust 前端基建", desc: "探索 SWC/TurboPack 背后的技术栈。", users: 42, color: "bg-gray-100 text-gray-700" },
-               { title: "独立开发 101", desc: "从 0 到 1，构建你的第一个盈利产品。", users: 256, color: "bg-purple-100 text-purple-600" }
-             ].map((group, idx) => (
-               <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md border border-gray-100 transition-all cursor-pointer group">
-                 <div className="flex justify-between items-start mb-4">
-                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${group.color}`}>
-                     # {group.title}
-                   </span>
-                   <div className="flex items-center text-xs text-gray-400 gap-1">
-                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
-                     </svg>
-                     {group.users}
-                   </div>
-                 </div>
-                 <p className="text-gray-600 text-sm leading-relaxed mb-4 group-hover:text-primary-900 transition-colors">
-                   {group.desc}
-                 </p>
-                 <div className="flex -space-x-2 overflow-hidden">
-                   {[...Array(4)].map((_, i) => (
-                     <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-gray-200"></div>
-                   ))}
-                   <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-gray-100 text-[10px] text-gray-500 font-medium">
-                     +
-                   </div>
-                 </div>
-               </div>
-             ))}
-          </div>
-        </div>
-
-        {/* Featured Poster Section */}
-        <div className="mb-20">
+        {/* 1V1 Mentorship Section */}
+        <div className="mb-24">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-primary-900 flex items-center gap-2">
-              <span className="w-1.5 h-8 bg-accent-gold rounded-full"></span>
-              热门活动
+              <span className="w-1.5 h-8 bg-accent-copper rounded-full"></span>
+              1V1 深度陪跑
             </h2>
-            <button className="text-primary-600 font-medium hover:text-primary-800 flex items-center gap-1">
-              查看全部 
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            <div className="px-3 py-1 bg-accent-copper/10 text-accent-copper rounded-full text-xs font-bold">
+              亦师亦友
+            </div>
+          </div>
+
+          <div className="bg-primary-900 rounded-[2.5rem] p-8 md:p-12 text-white relative shadow-2xl shadow-primary-900/20 group/container overflow-hidden isolate border border-primary-800">
+             {/* Background effects */}
+             <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none -z-10">
+               <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+               <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent-blue/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"></div>
+               <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary-500/20 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4"></div>
+             </div>
+
+             <div className="relative z-10">
+                <div className="flex flex-col gap-16">
+                   {/* Top Section: Header & Value Prop */}
+                   <div className="text-center max-w-4xl mx-auto">
+                      <h3 className="text-3xl md:text-5xl font-black mb-8 leading-tight">
+                        别一个人死磕了<br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-gold to-accent-copper">
+                          找个“老司机”带带你
+                        </span>
+                      </h3>
+                      <p className="text-primary-200 mb-10 leading-relaxed text-lg md:px-12">
+                        不搞虚头巴脑的 PPT。一对一，手把手，帮你看看代码哪写得烂，简历哪吹得假，面试哪容易挂。像朋友一样聊聊技术，顺便把 Offer 拿了。
+                      </p>
+                      <button onClick={() => setShowQRCode(true)} className="bg-gradient-to-r from-accent-gold to-accent-copper hover:from-accent-copper hover:to-accent-gold text-primary-900 font-bold py-4 px-12 rounded-full shadow-lg hover:shadow-accent-gold/20 transition-all transform hover:-translate-y-1 text-lg">
+                        预约 1V1 咨询
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Core Bootcamps Section - Bento Grid Style */}
+        <div className="mb-24">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-black text-primary-900 tracking-tight mb-2">
+                核心特训营
+              </h2>
+              <p className="text-primary-500 text-lg">实战驱动，结果导向，拒绝纸上谈兵</p>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent-copper/10 text-accent-copper rounded-full text-xs font-bold border border-accent-copper/20 animate-pulse">
+              🔥 火热报名中
+            </div>
           </div>
           
-          <div className="bg-white rounded-3xl p-2 shadow-xl border border-gray-100">
-            <div className="relative rounded-2xl overflow-hidden bg-primary-900 text-white min-h-[400px] flex flex-col md:flex-row">
-              {/* Left Content */}
-              <div className="p-10 md:p-14 md:w-1/2 z-10 flex flex-col justify-center">
-                <span className="inline-block bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wider mb-6 w-fit flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  OPEN SOURCE
-                </span>
-                <h3 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
-                  Next.js 企业级<br/>实战项目共建
-                </h3>
-                <p className="text-gray-300 mb-8 text-lg">
-                  拒绝纸上谈兵！从零开始打造一个全栈应用。
-                  <br/>
-                  涵盖鉴权、支付、部署全流程，代码完全开源，欢迎 PR。
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Camp 1: Interview Crash Course */}
+            <div className="group relative bg-white rounded-[2rem] p-8 shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 border border-primary-100 overflow-hidden flex flex-col h-full">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-accent-blue/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 group-hover:bg-accent-blue/20 transition-colors"></div>
+              
+              <div className="relative z-10 flex-1">
+                <div className="w-14 h-14 rounded-2xl bg-accent-blue text-white flex items-center justify-center mb-6 shadow-lg shadow-accent-blue/20 group-hover:scale-110 transition-transform duration-300">
+                  <Briefcase className="w-8 h-8" />
+                </div>
+                
+                <h3 className="text-2xl font-bold text-primary-900 mb-3 group-hover:text-accent-blue transition-colors">面试突击训练同学营</h3>
+                <p className="text-primary-500 leading-relaxed mb-8">
+                  针对大厂面试的高频考点与潜规则。从简历优化到模拟面试，我们不教你背题，教你如何像资深工程师一样思考与表达。
                 </p>
-                <div className="flex gap-4">
-                  <button className="bg-white text-primary-900 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition-colors shadow-lg flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                    </svg>
-                    GitHub 仓库
-                  </button>
-                  <button className="px-8 py-3 rounded-xl font-bold border border-white/20 hover:bg-white/10 transition-colors backdrop-blur-sm">
-                    查看开发文档
-                  </button>
+
+                <div className="space-y-4 mb-8">
+                  {[
+                    { title: "简历优化", desc: "挖掘亮点，规避坑点", icon: <FileText className="w-5 h-5 text-accent-blue" /> },
+                    { title: "模拟面试", desc: "1:1 还原真实场景", icon: <MessageCircle className="w-5 h-5 text-accent-blue" /> },
+                    { title: "学习计划", desc: "拒绝盲目刷题", icon: <Calendar className="w-5 h-5 text-accent-blue" /> },
+                    { title: "全程陪跑", desc: "亦师亦友，有问必答", icon: <Target className="w-5 h-5 text-accent-blue" /> }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-primary-50 group-hover:bg-accent-blue/5 transition-colors">
+                      <div className="p-2 bg-white rounded-lg shadow-sm text-accent-blue">{item.icon}</div>
+                      <div>
+                        <div className="font-bold text-primary-800 text-sm">{item.title}</div>
+                        <div className="text-xs text-primary-400">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Right Visual (Simulated Poster) */}
-              <div className="md:w-1/2 relative bg-gradient-to-br from-primary-800 to-primary-900 overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                {/* Abstract Shapes */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-gold rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-                <div className="absolute top-1/4 right-1/4 w-40 h-40 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-                <div className="absolute bottom-1/4 left-1/4 w-40 h-40 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-                
-                {/* Code Snippet Decoration */}
-                <div className="absolute right-10 top-10 bottom-10 left-10 border border-white/10 rounded-xl bg-black/20 backdrop-blur-md p-6 transform rotate-3 hover:rotate-0 transition-transform duration-500">
-                  <div className="flex gap-2 mb-4">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <div className="relative z-10 mt-auto pt-6 border-t border-primary-100">
+                <button onClick={() => setShowQRCode(true)} className="w-full flex items-center justify-between group/btn">
+                  <span className="font-bold text-primary-900 group-hover/btn:text-accent-blue transition-colors">查看课程大纲</span>
+                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center group-hover/btn:bg-accent-blue group-hover/btn:text-white transition-all">
+                    <svg className="w-5 h-5 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-2 w-3/4 bg-white/10 rounded"></div>
-                    <div className="h-2 w-1/2 bg-white/10 rounded"></div>
-                    <div className="h-2 w-full bg-white/10 rounded"></div>
-                    <div className="h-2 w-2/3 bg-white/10 rounded"></div>
-                    <div className="mt-4 h-2 w-5/6 bg-accent-gold/20 rounded"></div>
-                    <div className="h-2 w-4/5 bg-accent-gold/20 rounded"></div>
-                  </div>
-                  <div className="absolute bottom-6 right-6 text-6xl font-black text-white/5 select-none">
-                    JS
-                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Camp 2: Frontend Breakthrough */}
+            <div className="group relative bg-white rounded-[2rem] p-8 shadow-[0_2px_10px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 border border-primary-100 overflow-hidden flex flex-col h-full">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-accent-copper/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 group-hover:bg-accent-copper/20 transition-colors"></div>
+              
+              <div className="relative z-10 flex-1">
+                <div className="w-14 h-14 rounded-2xl bg-accent-copper text-white flex items-center justify-center mb-6 shadow-lg shadow-accent-copper/20 group-hover:scale-110 transition-transform duration-300">
+                  <Rocket className="w-8 h-8" />
                 </div>
+                
+                <h3 className="text-2xl font-bold text-primary-900 mb-3 group-hover:text-accent-copper transition-colors">前端破壁同学营</h3>
+                <p className="text-primary-500 leading-relaxed mb-8">
+                  告别“只会写业务”，从零编写你的脚手架，亲手搭建 Next.js 全栈应用，并配置 CI/CD、监控与域名，完成一次对“开发-部署-运维”全链路的彻底掌控。
+                </p>
+
+                <div className="space-y-4 mb-8">
+                  {[
+                    { title: "自研脚手架", desc: "从零打造 CLI 工具", icon: <Code2 className="w-5 h-5 text-accent-copper" /> },
+                    { title: "Next.js 全栈", desc: "独立开发完整应用", icon: <Layers className="w-5 h-5 text-accent-copper" /> },
+                    { title: "CI/CD & 运维", desc: "自动化部署与监控", icon: <Shield className="w-5 h-5 text-accent-copper" /> }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-primary-50 group-hover:bg-accent-copper/5 transition-colors">
+                      <div className="p-2 bg-white rounded-lg shadow-sm text-accent-copper">{item.icon}</div>
+                      <div>
+                        <div className="font-bold text-primary-800 text-sm">{item.title}</div>
+                        <div className="text-xs text-primary-400">{item.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-auto pt-6 border-t border-primary-100">
+                <button onClick={() => setShowQRCode(true)} className="w-full flex items-center justify-between group/btn">
+                  <span className="font-bold text-primary-900 group-hover/btn:text-accent-copper transition-colors">查看课程大纲</span>
+                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center group-hover/btn:bg-accent-copper group-hover/btn:text-white transition-all">
+                    <svg className="w-5 h-5 transform group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                  </div>
+                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Bottom CTA */}
-        <div className="bg-gradient-to-r from-accent-gold to-[#eac14d] rounded-3xl p-10 text-center relative overflow-hidden shadow-lg">
-          <div className="absolute top-0 left-0 w-full h-full bg-white/10"></div>
-          <div className="relative z-10">
-            <h2 className="text-3xl font-bold text-primary-900 mb-4">Ready to Build?</h2>
-            <p className="text-primary-800 mb-8 max-w-2xl mx-auto">
-              不管你是小白还是大佬，这里都有你的位置。<br/>来贡献代码，来分享经验，来寻找志同道合的伙伴。
-            </p>
-            <button 
-              onClick={() => setShowQRCode(true)}
-              className="bg-primary-900 text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-primary-800 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
-            >
-              加入开源社区
-            </button>
-          </div>
-        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-primary-100 py-12 mt-auto shrink-0">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-primary-400 font-medium mb-4">大前端同学营 · 陪伴你的每一次技术成长</p>
+          <p className="text-primary-300 text-sm">© 2025 Big Frontend Camp. All rights reserved.</p>
+        </div>
+      </footer>
 
       {/* QR Code Modal */}
       {showQRCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
-            className="absolute inset-0 bg-primary-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-primary-900/80 backdrop-blur-sm"
             onClick={() => setShowQRCode(false)}
           ></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full animate-modal-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full animate-modal-in transform transition-all">
             <button 
               onClick={() => setShowQRCode(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              className="absolute top-4 right-4 text-primary-400 hover:text-primary-600"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -316,26 +499,67 @@ const StudentCamp = () => {
             
             <div className="text-center">
               <h3 className="text-xl font-bold text-primary-900 mb-2">扫码加入交流群</h3>
-              <p className="text-gray-500 text-sm mb-6">与 10000+ 小伙伴一起成长</p>
+              <p className="text-primary-500 text-sm mb-6">与 10000+ 小伙伴一起成长</p>
               
-              <div className="w-48 h-48 mx-auto bg-gray-100 rounded-xl mb-6 flex items-center justify-center border-2 border-dashed border-primary-200">
-                {/* Simulated QR Code */}
-                <div className="grid grid-cols-5 gap-1 p-2">
-                   {[...Array(25)].map((_, i) => (
-                     // Use a deterministic pattern instead of Math.random() to ensure purity and avoid hydration mismatches
-                     <div key={i} className={`w-full h-full rounded-sm ${(i * 7 + 3) % 5 !== 0 ? 'bg-primary-900' : 'bg-transparent'}`}></div>
-                   ))}
-                </div>
+              <div className="w-48 h-48 mx-auto bg-white rounded-xl mb-6 flex items-center justify-center border-2 border-dashed border-primary-200 overflow-hidden relative group">
+                {/* Real QR Code with Fallback */}
+                {!qrError ? (
+                  <img 
+                    src="/temp/group_qr.jpg" 
+                    alt="大前端同学营交流群二维码" 
+                    onError={() => setQrError(true)}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full h-full bg-primary-50 text-primary-400 p-4 text-center">
+                    <div className="w-8 h-8 mb-2 rounded-full bg-primary-100 flex items-center justify-center">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium">图片未找到</span>
+                    <span className="text-[10px] mt-1 opacity-70 break-all">public/temp/group_qr.jpg</span>
+                  </div>
+                )}
               </div>
               
               <div className="bg-primary-50 rounded-lg p-3 text-xs text-primary-700">
                 <p>💡 进群暗号：<span className="font-bold">大前端</span></p>
-                <p>如二维码失效，请联系管理员：admin_helper</p>
+                {/* <p>如二维码失效，请联系管理员：admin_helper</p> */}
               </div>
             </div>
           </div>
         </div>
       )}
+      {/* Floating Action Buttons Container */}
+      <div className="fixed bottom-8 right-8 z-40 flex flex-col gap-3 items-center">
+        {/* Back to Top Button - Typographic Style */}
+        <button
+          onClick={scrollToTop}
+          className={`flex items-center justify-center w-14 h-14 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) ${
+            showScrollTop 
+              ? 'translate-y-0 opacity-100 scale-100' 
+              : 'translate-y-10 opacity-0 scale-75 pointer-events-none'
+          } bg-white text-primary-900 border border-primary-100 hover:bg-primary-50 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] hover:scale-110 hover:-translate-y-1 group overflow-hidden`}
+          aria-label="Back to top"
+        >
+          <span className="relative z-10 font-black text-xs tracking-widest group-hover:tracking-[0.25em] transition-all duration-300">
+            TOP
+          </span>
+        </button>
+
+        {/* Join Group Button - Premium Style */}
+        <button
+          onClick={() => setShowQRCode(true)}
+          className="flex items-center justify-center w-14 h-14 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.2)] bg-primary-900 text-accent-gold border border-white/10 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.4)] hover:scale-110 hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative"
+          aria-label="Join Group"
+        >
+          {/* Shimmer Effect */}
+          <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent z-0" />
+          
+          <MessageCircle className="w-7 h-7 relative z-10 group-hover:rotate-12 transition-transform duration-300" strokeWidth={2} />
+        </button>
+      </div>
     </div>
   );
 };

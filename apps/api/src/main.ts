@@ -36,6 +36,13 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
   });
+
+  // Global Request Logger
+  app.use((req: any, res: any, next: any) => {
+    console.log(`🌐 [Global] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   const port = Number(process.env.PORT ?? 3002);

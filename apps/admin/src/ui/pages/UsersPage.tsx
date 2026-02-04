@@ -8,6 +8,7 @@ type UserRow = {
   name?: string;
   createdAt: string;
   emailVerified: boolean;
+  accounts?: { providerId: string }[];
 };
 
 export function UsersPage() {
@@ -58,6 +59,23 @@ export function UsersPage() {
         columns={[
           { title: "ID", dataIndex: "id", width: 100, ellipsis: true },
           { title: "用户名", dataIndex: "name" },
+          { 
+            title: "注册渠道",
+            dataIndex: "accounts",
+            render: (accounts: { providerId: string }[]) => {
+               if (!accounts || accounts.length === 0) return <Typography.Text type="secondary">未知</Typography.Text>;
+               
+               const providerMap: Record<string, string> = {
+                 'credential': '邮箱注册',
+                 'email': '邮箱注册',
+                 'github': 'GitHub',
+                 'google': 'Google',
+               };
+
+               const providers = Array.from(new Set(accounts.map(a => a.providerId)));
+               return providers.map(p => providerMap[p] || p).join(", ");
+            }
+          },
           { title: "邮箱", dataIndex: "email" },
           { 
             title: "邮箱验证", 

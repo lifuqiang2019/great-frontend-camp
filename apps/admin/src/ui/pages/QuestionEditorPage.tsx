@@ -99,34 +99,95 @@ export const QuestionEditorPage: React.FC = () => {
     let failCount = 0;
     const newProgress = { ...uploadProgress };
 
-    for (const file of fileList) {
-      if (newProgress[file.uid] === 'success') continue; // Skip already succeeded
+    // Group files by normalized title
+    const groups: Record<string, { solutionFile?: UploadFile, transcriptFile?: UploadFile }> = {};
+    
+    // Normalize logic
+    const getNormalizedTitle = (filename: string) => {
+      return filename.replace(/\.md$/i, '')
+        .replace(/_逐字稿$/, '')
+        .replace(/^\d+_/, '');
+    };
 
-      newProgress[file.uid] = 'pending';
+    // First pass: group files
+    for (const file of fileList) {
+      const normalizedTitle = getNormalizedTitle(file.name);
+      if (!groups[normalizedTitle]) {
+        groups[normalizedTitle] = {};
+      }
+      
+      if (file.name.includes('逐字稿')) {
+        groups[normalizedTitle].transcriptFile = file;
+      } else {
+        groups[normalizedTitle].solutionFile = file;
+      }
+    }
+
+    // Process groups
+    for (const [title, files] of Object.entries(groups)) {
+      const { solutionFile, transcriptFile } = files;
+      const relatedUids = [solutionFile?.uid, transcriptFile?.uid].filter(Boolean) as string[];
+
+      // Skip if all related files are already success
+      if (relatedUids.every(uid => newProgress[uid] === 'success')) continue;
+
+      // Mark as pending
+      relatedUids.forEach(uid => newProgress[uid] = 'pending');
       setUploadProgress({ ...newProgress });
 
       try {
-        // In beforeUpload, the file is the RCFile object itself (which extends File)
-        // It does not have originFileObj property unless it went through standard Upload onChange
-        const fileObj = (file as any).originFileObj || file;
-        const text = await fileObj.text();
-        
-        if (text === undefined) throw new Error('Empty file content');
+        let solution = '';
+        let transcript = '';
+        let interviewerQuestion = '';
 
-        // Remove extension and leading "001_" pattern
-        const title = file.name.replace(/\.md$/i, '').replace(/^\d+_/, '');
+        // Read Solution File
+        if (solutionFile) {
+          const fileObj = (solutionFile as any).originFileObj || solutionFile;
+          solution = await fileObj.text();
+        }
+
+        // Read and Parse Transcript File
+        if (transcriptFile) {
+          const fileObj = (transcriptFile as any).originFileObj || transcriptFile;
+          const text = await fileObj.text();
+          
+          // Extract content using regex based on headers
+          // Match content between "## 面试官提问" and next "##" or end of file
+          const questionMatch = text.match(/##\s*面试官提问\s*([\s\S]*?)(?=(##|$))/);
+          if (questionMatch && questionMatch[1]) {
+            interviewerQuestion = questionMatch[1].trim().replace(/^"|"$/g, '').trim();
+          }
+
+          // Match content after "## 面试高分回答（逐字稿）" (or similar header)
+          const transcriptMatch = text.match(/##\s*面试.*逐字稿.*\s*([\s\S]*)/);
+          if (transcriptMatch && transcriptMatch[1]) {
+            transcript = transcriptMatch[1].trim().replace(/^"|"$/g, '').trim();
+          } else {
+            // Fallback if header is slightly different, try matching just "逐字稿" header
+            const simpleMatch = text.match(/##\s*.*逐字稿.*\s*([\s\S]*)/);
+             if (simpleMatch && simpleMatch[1]) {
+              transcript = simpleMatch[1].trim().replace(/^"|"$/g, '').trim();
+            }
+          }
+        }
+        
+        // If we have at least a title (which we do from the key), create the question
+        // We prefer solution text, but if missing, we still create it?
+        // Let's assume at least one file must exist (which is guaranteed by the loop)
         
         await http.post('/questions', {
           title,
           categoryId: batchCategoryId,
-          solution: text,
+          solution,
+          transcript,
+          interviewerQuestion
         });
 
-        newProgress[file.uid] = 'success';
+        relatedUids.forEach(uid => newProgress[uid] = 'success');
         successCount++;
       } catch (error) {
-        console.error(`Failed to import ${file.name}`, error);
-        newProgress[file.uid] = 'error';
+        console.error(`Failed to import group ${title}`, error);
+        relatedUids.forEach(uid => newProgress[uid] = 'error');
         failCount++;
       }
       setUploadProgress({ ...newProgress });
@@ -282,7 +343,7 @@ export const QuestionEditorPage: React.FC = () => {
           </p>
           <p className="ant-upload-text">点击或拖拽 Markdown 文件到此区域上传</p>
           <p className="ant-upload-hint">
-            支持批量上传，文件名将作为题目名称，文件内容将作为题解
+            支持批量上传，自动匹配同名题目文件（如：xxx.md 和 xxx_逐字稿.md）
           </p>
         </Dragger>
 

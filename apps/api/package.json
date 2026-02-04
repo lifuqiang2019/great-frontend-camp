@@ -22,9 +22,10 @@
     "dotenv": "^17.2.3",
     "https-proxy-agent": "^7.0.6",
     "mongodb": "^7.0.0",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^6.9.16",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socks": "^2.8.7",
     "socks-proxy-agent": "^8.0.5",
     "undici": "^7.19.2"
   },

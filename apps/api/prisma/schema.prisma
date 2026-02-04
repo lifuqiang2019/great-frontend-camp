@@ -69,6 +69,16 @@ model Verification {
   @@map("verification")
 }
 
+model VerificationCode {
+  id        String   @id @default(uuid()) @map("_id")
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("verification_code")
+}
+
 model QuestionCategory {
   id        String     @id @default(uuid()) @map("_id")
   name      String     @unique

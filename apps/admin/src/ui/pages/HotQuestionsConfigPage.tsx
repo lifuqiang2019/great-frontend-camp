@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, InputNumber, Button, message, Spin, Row, Col } from 'antd';
+import { Card, Form, InputNumber, Button, message, Spin, Row, Col, Popconfirm, Alert } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import http from '../../lib/request';
 
 export const HotQuestionsConfigPage = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const fetchConfig = async () => {
     try {
@@ -44,6 +46,21 @@ export const HotQuestionsConfigPage = () => {
       message.error('更新配置失败');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleClearZeroHotScore = async () => {
+    try {
+      setClearing(true);
+      const res = await http.delete<{count: number}>('/questions/batch/zero-hot-score');
+      // @ts-ignore
+      const count = res.count !== undefined ? res.count : res; 
+      message.success(`已成功清理 ${count} 个非热门题目`);
+    } catch (error) {
+      console.error(error);
+      message.error('清理失败');
+    } finally {
+      setClearing(false);
     }
   };
 

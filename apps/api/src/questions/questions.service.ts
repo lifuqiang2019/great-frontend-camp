@@ -141,4 +141,48 @@ export class QuestionsService {
       where: { id },
     });
   }
+
+  private async deleteQuestionsByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return { count: 0 };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 先删除关联的收藏
+      await tx.favorite.deleteMany({
+        where: {
+          questionId: { in: ids },
+        },
+      });
+
+      // 再删除题目
+      return tx.question.deleteMany({
+        where: {
+          id: { in: ids },
+        },
+      });
+    });
+  }
+
+  async removeQuestionsByHotScoreThreshold(threshold: number) {
+    // 1. 查找所有 hotScore <= threshold 的题目 ID
+    const questions = await this.prisma.question.findMany({
+      where: { hotScore: { lte: threshold } },
+      select: { id: true },
+    });
+
+    const ids = questions.map(q => q.id);
+    return this.deleteQuestionsByIds(ids);
+  }
+
+  async removeQuestionsByCategory(categoryId: string) {
+    // 1. 查找该分类下的所有题目 ID
+    const questions = await this.prisma.question.findMany({
+      where: { categoryId },
+      select: { id: true },
+    });
+
+    const ids = questions.map(q => q.id);
+    return this.deleteQuestionsByIds(ids);
+  }
 }

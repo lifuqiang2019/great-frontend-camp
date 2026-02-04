@@ -25,13 +25,44 @@ export class UsersService {
   async findAll() {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        accounts: {
+          select: {
+            providerId: true
+          }
+        }
+      }
     });
     
     if (users.length === 0) {
       return [
-        { id: "mock-1", name: "Alice Admin", email: "alice@example.com", createdAt: new Date(), emailVerified: true, image: null },
-        { id: "mock-2", name: "Bob User", email: "bob@example.com", createdAt: new Date(Date.now() - 86400000), emailVerified: true, image: null },
-        { id: "mock-3", name: "Charlie Dev", email: "charlie@example.com", createdAt: new Date(Date.now() - 172800000), emailVerified: false, image: null },
+        { 
+          id: "mock-1", 
+          name: "Alice Admin", 
+          email: "alice@example.com", 
+          createdAt: new Date(), 
+          emailVerified: true, 
+          image: null,
+          accounts: [{ providerId: "credential" }]
+        },
+        { 
+          id: "mock-2", 
+          name: "Bob User", 
+          email: "bob@example.com", 
+          createdAt: new Date(Date.now() - 86400000), 
+          emailVerified: true, 
+          image: null,
+          accounts: [{ providerId: "github" }]
+        },
+        { 
+          id: "mock-3", 
+          name: "Charlie Dev", 
+          email: "charlie@example.com", 
+          createdAt: new Date(Date.now() - 172800000), 
+          emailVerified: false, 
+          image: null,
+          accounts: [{ providerId: "credential" }]
+        },
       ];
     }
     

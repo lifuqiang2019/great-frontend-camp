@@ -1,8 +1,5 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import * as nodemailer from "nodemailer";
-// import { SocksProxyAgent } from "socks-proxy-agent";
-import { HttpsProxyAgent } from "https-proxy-agent";
 
 const prisma = new PrismaClient();
 
@@ -13,11 +10,18 @@ let authInstance: any;
 const dynamicImport = new Function("specifier", "return import(specifier)");
 
 export async function getAuth() {
-  if (authInstance) return authInstance;
+  // if (authInstance) {
+  //   console.log("🔄 [AuthConfig] Returning existing Better-Auth instance");
+  //   return authInstance;
+  // }
+  
+  console.log("✨ [AuthConfig] Initializing new Better-Auth instance...");
 
   const { betterAuth } = await dynamicImport("better-auth");
   const { prismaAdapter } = await dynamicImport("better-auth/adapters/prisma");
   
+  const { APIError, createAuthMiddleware } = await dynamicImport("better-auth/api");
+
   // Configure Global Proxy for Fetch (Better-Auth uses fetch internally)
   if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
     try {
@@ -31,99 +35,88 @@ export async function getAuth() {
     }
   }
 
-  // Create Nodemailer transporter
-  const transporterConfig: any = {
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: true, // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  };
-
-  // Add proxy support for local development (Gmail SMTP requires proxy in some regions)
-  // Only use proxy if PROXY_HOST is explicitly defined in env (e.g. for local dev)
-  // In production (Docker), we usually don't set PROXY_HOST, so it skips this.
-  const proxyHost = process.env.PROXY_HOST;
-  const proxyPort = process.env.PROXY_PORT;
-  
-  if (proxyHost && proxyPort) {
-     // Switch to HTTP Proxy (HttpsProxyAgent) as it proved stable in diagnosis
-     // and might be more robust in the NestJS environment than SocksProxyAgent
-     const proxyUrl = `http://${proxyHost}:${proxyPort}`;
-     console.log(`📧 Configuring SMTP Proxy (HTTP): ${proxyUrl}`);
-     console.log(`   (Force Reload Check: ${new Date().toISOString()})`);
-     
-     try {
-       transporterConfig.agent = new HttpsProxyAgent(proxyUrl);
-       // Increase agent timeout
-       transporterConfig.agent.timeout = 20000;
-       console.log('   HTTP Proxy Agent attached.');
-     } catch (e) {
-       console.error('   ❌ Failed to create HttpsProxyAgent:', e);
-     }
-  }
-
-  // Robust timeout settings
-  transporterConfig.connectionTimeout = 20000; // 20 seconds
-  transporterConfig.socketTimeout = 20000;
-  
-  // Ensure we use Port 465 (SSL) which was verified working
-  transporterConfig.port = 465;
-  transporterConfig.secure = true;
-  
-  // Allow self-signed certs if proxy intercepts
-  transporterConfig.tls = {
-    rejectUnauthorized: false
-  };
-
-  const transporter = nodemailer.createTransport(transporterConfig);
-
   authInstance = betterAuth({
+    appName: "BigFedCamp",
+    logger: {
+      level: "debug",
+      disabled: false,
+    },
     database: prismaAdapter(prisma, {
       provider: "mongodb",
     }),
-    emailAndPassword: {
-      enabled: true,
-      requireEmailVerification: true,
-    },
-    emailVerification: {
-      sendOnSignUp: true,
-      autoSignInAfterVerification: true,
-      sendVerificationEmail: async (data: any) => {
-        const { user, url } = data;
-        // Redirect to frontend after verification
-        const urlObj = new URL(url);
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-        urlObj.searchParams.set("callbackURL", frontendUrl);
-        const verificationUrlWithRedirect = urlObj.toString();
-
-        console.log("📧 ========================================");
-        console.log(`Sending verification email to: ${user.email}`);
-        
-        try {
-          const info = await transporter.sendMail({
-            from: `"GreatFedCamp" <${process.env.SMTP_USER}>`,
-            to: user.email,
-            subject: "Verify your email address",
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>Welcome to GreatFedCamp!</h2>
-                <p>Please click the button below to verify your email address:</p>
-                <a href="${verificationUrlWithRedirect}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0;">Verify Email</a>
-                <p>This link will expire in 24 hours.</p>
-                <p style="font-size: 12px; color: #666;">If you didn't create an account, you can ignore this email.</p>
-              </div>
-            `,
-          });
-          console.log("Email sent: ", info.messageId);
-        } catch (error) {
-          console.error("Error sending email: ", error);
+    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3002/api/auth",
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user: any) => {
+             console.log("📝 [DB Hook] Creating user, setting emailVerified=true");
+             return {
+                 ...user,
+                 emailVerified: true
+             }
+          },
+          after: async (user: any) => {
+            console.log(`✅ [DB Hook] User created: ${user.email}, ensuring emailVerified=true`);
+            // Double check / Force update to ensure it's persisted
+            if (!user.emailVerified) {
+               await prisma.user.update({
+                 where: { id: user.id },
+                 data: { emailVerified: true }
+               });
+               console.log("   🔄 Force updated emailVerified to true");
+            }
+          }
         }
-        console.log("======================================== 📧");
       },
     },
+    hooks: {
+        before: createAuthMiddleware(async (ctx: any) => {
+            if (ctx.path === "/sign-up/email") {
+                console.log("🛑 [AuthHook] Intercepting SignUp...");
+                const body = ctx.body as any;
+                const email = body?.email;
+                const otp = body?.otp; // We will send this from frontend
+
+                if (!email) return;
+
+                console.log(`   Checking OTP for ${email}: ${otp}`);
+
+                if (!otp) {
+                    throw new APIError("BAD_REQUEST", { message: "Verification code is required" });
+                }
+
+                // Verify OTP from DB
+                const validCode = await prisma.verificationCode.findFirst({
+                    where: {
+                        email,
+                        code: otp,
+                        expiresAt: { gt: new Date() }
+                    }
+                });
+
+                if (!validCode) {
+                     throw new APIError("BAD_REQUEST", { message: "Invalid or expired verification code" });
+                }
+
+                // If valid, delete the code (consume it)
+                await prisma.verificationCode.delete({ where: { id: validCode.id } });
+                console.log("✅ OTP Verified! Proceeding with registration.");
+
+                return {
+                    context: {
+                        ...ctx,
+                        otpVerified: true
+                    }
+                };
+            }
+        }),
+    },
+    emailAndPassword: {
+      enabled: true,
+      autoSignIn: true,
+      requireEmailVerification: false, 
+    },
+    plugins: [],
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_CLIENT_ID as string,

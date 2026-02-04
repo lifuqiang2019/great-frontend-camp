@@ -1078,7 +1078,7 @@ export default function CodingCommunity({
                     {/* Video Preview Popup - Disabled for Top 1 as it has dedicated video block */}
                     {hoveredQuestionId === item.id && !isTop1 && (item.videoUrl || item.id === hotQuestions[0].id) && (
                       <VideoPreview 
-                        url={item.videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"} 
+                        url={item.videoUrl || "https://www.w3schools.com/html/mov_bbb.mp4"} 
                         title={item.title} 
                       />
                     )}
@@ -1136,7 +1136,7 @@ export default function CodingCommunity({
                           onClick={(e) => e.stopPropagation()} 
                         >
                           <video 
-                            src={item.videoUrl || "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"}
+                            src={item.videoUrl || "https://www.w3schools.com/html/mov_bbb.mp4"}
                             className="w-full h-full object-cover"
                             controls
                             muted
