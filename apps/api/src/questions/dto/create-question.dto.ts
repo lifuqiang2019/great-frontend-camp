@@ -4,6 +4,10 @@ export class CreateQuestionCategoryDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 export class CreateQuestionDto {

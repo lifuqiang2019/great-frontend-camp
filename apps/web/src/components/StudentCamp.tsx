@@ -371,6 +371,73 @@ const StudentCamp = () => {
           </div>
         </div>
 
+        {/* Mentor Team Section */}
+        <div className="mb-24">
+           <div className="text-center mb-16">
+              <span className="inline-block py-1 px-3 rounded-full bg-accent-blue/10 text-accent-blue font-bold text-xs tracking-widest uppercase mb-4">Mentors</span>
+              <h2 className="text-3xl md:text-5xl font-black text-primary-900 tracking-tight mb-6">
+                一线大厂 <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-blue to-cyan-500">资深导师</span>
+              </h2>
+              <p className="text-xl text-primary-500 max-w-3xl mx-auto leading-relaxed">
+                他们拥有丰富的实战经验与面试官视角，拒绝照本宣科，只教你在工作中真正用得上的硬核技术。
+              </p>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                {
+                  name: "张真人",
+                  role: "资深前端技术专家",
+                  desc: "曾就职于阿里等一线互联网公司，主导过大型电商活动的前端架构设计。擅长性能优化与工程化体系建设。",
+                  tags: ["架构设计", "性能优化", "工程化"],
+                  avatar: "/img/0.png"
+                },
+                {
+                  name: "袁老师",
+                  role: "全栈开发工程师",
+                  desc: "多年 Node.js 全栈开发经验，拥有丰富的服务端落地与微服务治理实践。热衷于开源社区与技术分享。",
+                  tags: ["Node.js", "全栈开发", "面试指导"],
+                  avatar: "/img/1.png"
+                },
+                {
+                  name: "强哥",
+                  role: "高级前端工程师",
+                  desc: "专注于 React 生态与跨端开发方案。善于将复杂的技术原理抽丝剥茧，帮助学员建立清晰的知识体系。",
+                  tags: ["React 源码", "跨端开发", "可视化"],
+                  avatar: "/img/3.png"
+                }
+              ].map((mentor, i) => (
+                <div key={i} className="group relative bg-white rounded-2xl p-6 border border-primary-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-100 to-primary-50 rounded-t-2xl group-hover:from-accent-blue group-hover:to-cyan-500 transition-colors"></div>
+                  
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-16 h-16 rounded-full bg-primary-50 flex items-center justify-center text-3xl shadow-inner group-hover:scale-110 transition-transform overflow-hidden">
+                      <img src={mentor.avatar} alt={mentor.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-primary-900">{mentor.name}</h3>
+                      <div className="text-xs font-bold text-accent-blue bg-accent-blue/10 px-2 py-1 rounded-md inline-block mt-1">
+                        {mentor.role}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <p className="text-primary-600 text-sm leading-relaxed mb-6 min-h-[60px]">
+                    {mentor.desc}
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {mentor.tags.map((tag, tIdx) => (
+                      <span key={tIdx} className="text-[10px] font-medium px-2 py-1 rounded-full bg-primary-50 text-primary-500 border border-primary-100">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+           </div>
+        </div>
+
         {/* Core Bootcamps Section - Bento Grid Style */}
         <div className="mb-24">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
