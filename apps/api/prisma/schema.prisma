@@ -19,9 +19,22 @@ model User {
   sessions      Session[]
   accounts      Account[]
   favorites     Favorite[]
+  notes         Note[]
 
   @@unique([email])
   @@map("user")
+}
+
+model Note {
+  id        String   @id @default(uuid()) @map("_id")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String   // Encrypted content
+  iv        String   // Initialization vector for encryption
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("note")
 }
 
 model Session {
@@ -100,6 +113,7 @@ model Question {
   categoryId  String
   category    QuestionCategory @relation(fields: [categoryId], references: [id])
   hotScore    Int              @default(0)
+  viewCount   Int              @default(0)
   videoUrl    String?
   favorites   Favorite[]
   createdAt   DateTime         @default(now())

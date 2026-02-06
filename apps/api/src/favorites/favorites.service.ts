@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { QuestionsService } from '../questions/questions.service';
 
 @Injectable()
 export class FavoritesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly questionsService: QuestionsService
+  ) {}
 
   async toggleFavorite(userId: string, questionId: string) {
     // Check if favorite exists
@@ -16,13 +20,14 @@ export class FavoritesService {
       },
     });
 
+    let result;
     if (existing) {
       await this.prisma.favorite.delete({
         where: {
           id: existing.id,
         },
       });
-      return { isFavorite: false };
+      result = { isFavorite: false };
     } else {
       await this.prisma.favorite.create({
         data: {
@@ -30,8 +35,15 @@ export class FavoritesService {
           questionId,
         },
       });
-      return { isFavorite: true };
+      result = { isFavorite: true };
     }
+
+    // Update hot score asynchronously
+    this.questionsService.updateHotScore(questionId).catch(err => 
+      console.error(`Failed to update hot score for ${questionId} after favorite toggle`, err)
+    );
+
+    return result;
   }
 
   async checkFavorite(userId: string, questionId: string) {

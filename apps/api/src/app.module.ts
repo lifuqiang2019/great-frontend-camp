@@ -7,6 +7,7 @@ import { AuthModule } from "./auth/auth.module";
 import { QuestionsModule } from "./questions/questions.module";
 import { FavoritesModule } from "./favorites/favorites.module";
 import { SystemModule } from "./system/system.module";
+import { NotesModule } from "./notes/notes.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SystemModule } from "./system/system.module";
     QuestionsModule,
     FavoritesModule,
     SystemModule,
+    NotesModule,
   ],
   controllers: [HealthController],
 })

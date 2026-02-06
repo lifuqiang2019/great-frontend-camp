@@ -7,6 +7,8 @@ import { api } from '@/lib/request';
 import StudentCamp from '@/components/StudentCamp';
 import Home from '@/components/Home';
 import LoginModal from '@/components/LoginModal';
+import { UserProfileModal } from '@/components/UserProfileModal';
+import { UserAvatar } from '@/components/UserAvatar';
 import { useSession, signOut } from '@/lib/auth-client';
 
 interface MainPageProps {
@@ -28,6 +30,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
   const [communityKey, setCommunityKey] = useState(0);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -151,7 +154,6 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
     return () => clearInterval(interval);
   }, []);
-
 
   useEffect(() => {
     const handlePopState = () => {
@@ -288,10 +290,12 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     // { name: '首页' },
   ];
 
+  const showNavSearch = activeTab !== '面试题库' || (!!currentQuestionId && currentQuestionId !== '');
+
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="flex flex-col h-screen bg-neutral-white overflow-hidden font-sans text-primary-900 selection:bg-accent-gold/20">
       {/* Navbar */}
-      <nav className="bg-primary-900 shadow-subtle py-[0.8rem] flex-shrink-0 border-b border-primary-800">
+      <nav className="bg-primary-900 shadow-subtle py-[0.8rem] flex-shrink-0 border-b border-primary-800 z-50 relative">
         <div className="max-w-full m-0 px-10 flex items-center justify-between">
           <div className="flex items-center min-w-[100px] mr-10">
             <div 
@@ -355,7 +359,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
           </ul>
 
           {/* Search Box */}
-          <div className="flex-1 max-w-md mx-auto px-4 hidden md:block">
+          <div className={`flex-1 max-w-md mx-auto px-4 hidden md:block transition-all duration-300 ${showNavSearch ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
             <div className="relative group" ref={searchContainerRef}>
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                 <svg 
@@ -445,14 +449,19 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
           <div className="flex items-center min-w-[100px] justify-end relative" ref={userMenuRef}>
             <div 
-              className="w-9 h-9 bg-primary-800 rounded-full flex items-center justify-center text-accent-gold text-[12px] cursor-pointer font-bold border border-primary-700 hover:bg-primary-700 transition-colors shadow-sm overflow-hidden"
+              className="flex items-center gap-3 cursor-pointer group"
               onClick={handleAvatarClick}
               title={session ? `已登录: ${session.user.name || session.user.email}` : "点击登录"}
             >
-              {session?.user.image ? (
-                <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
-              ) : (
-                session?.user.name ? session.user.name.charAt(0).toUpperCase() : "登录"
+              <UserAvatar 
+                user={session?.user} 
+                size="md"
+                className="group-hover:ring-2 ring-primary-200 transition-all"
+              />
+              {session?.user && (
+                <span className="text-[14px] font-medium text-primary-100 group-hover:text-white transition-colors hidden md:block max-w-[120px] truncate">
+                  {session.user.name || session.user.email?.split('@')[0] || 'User'}
+                </span>
               )}
             </div>
 
@@ -471,7 +480,13 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
 
                 {/* Menu Items */}
                 <div className="py-2">
-                  <button className="w-full text-left px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 hover:text-primary-900 transition-colors flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 hover:text-primary-900 transition-colors flex items-center gap-3"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                       <circle cx="12" cy="7" r="4"></circle>
@@ -493,6 +508,29 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
                       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                     </svg>
                     我的课程
+                  </button>
+                  <button 
+                    onClick={() => {
+                      // Re-enable floating note icon
+                      localStorage.setItem('noteIconVisible', 'true');
+                      window.dispatchEvent(new Event('SHOW_NOTE_ICON'));
+                      
+                      // Close menu
+                      setIsUserMenuOpen(false);
+                      
+                      // Navigate to Coding Community
+                      setActiveTab('面试题库');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-primary-700 hover:bg-primary-50 hover:text-primary-900 transition-colors flex items-center gap-3"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    我的笔记
                   </button>
                   <button 
                     onClick={() => {
@@ -547,6 +585,7 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
             onQuestionSelect={(id) => setCurrentQuestionId(id || undefined)}
             questions={questions}
             categories={categories}
+            searchPlaceholder={searchPlaceholder}
           />
         </div>
         
@@ -564,6 +603,23 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)} 
       />
+
+      {/* Profile Modal */}
+      {session?.user && (
+        <UserProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          user={{
+            id: session.user.id,
+            name: session.user.name || undefined,
+            image: session.user.image || undefined,
+            email: session.user.email
+          }}
+          onUpdate={() => {
+            // Optional: trigger local state update if needed, but we rely on reload for now
+          }}
+        />
+      )}
     </div>
   );
 }

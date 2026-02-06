@@ -8,6 +8,8 @@ import 'highlight.js/styles/github.css'; // Light theme code highlighting
 import mermaid from 'mermaid';
 import { api } from '../lib/request';
 import { useSession } from '../lib/auth-client';
+import NotePadModal from './NotePadModal';
+import { UserAvatar } from './UserAvatar';
 
 // Memoized component to render HTML content with Mermaid diagrams
 // This prevents React from resetting the DOM (and losing Mermaid SVG) on parent re-renders
@@ -172,6 +174,7 @@ interface CodingCommunityProps {
   onQuestionSelect?: (id: string | null) => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  searchPlaceholder?: string;
   questions?: QuestionItem[];
   categories?: Category[];
 }
@@ -190,28 +193,26 @@ const QuestionListItem = ({
   isHot?: boolean;
 }) => {
   return (
-    <div className="relative mb-0.5">
+    <div className="relative">
       <div
         onClick={() => onSelect(item)}
-        className={`group w-full p-2 rounded-md cursor-pointer text-sm transition-colors duration-200 ease-in-out overflow-hidden ${
+        className={`group w-full py-1.5 pl-2 pr-1 rounded-md cursor-pointer text-sm transition-colors duration-200 ease-in-out overflow-hidden flex items-start gap-2 ${
           isSelected 
             ? 'text-primary-900 bg-primary-100 font-medium' 
             : 'text-primary-500 hover:text-primary-900 hover:bg-primary-50 bg-transparent'
         }`}
       >
-        <div className="flex items-start gap-2">
-          <span className={`text-xs font-mono min-w-[1rem] shrink-0 pt-0.5 text-center ${
+          <span className={`text-xs font-mono min-w-[1.2rem] shrink-0 pt-[3px] text-left ${
             isHot && index === 0 ? 'text-[#FF2D55] font-black italic text-sm scale-110 drop-shadow-sm' :
             isHot && index === 1 ? 'text-[#FF9500] font-extrabold italic' :
             isHot && index === 2 ? 'text-[#FFCC00] font-bold italic' :
             'text-primary-300'
           }`}>
-            {index + 1}
+            {index + 1}.
           </span>
-          <div className="flex-1 leading-relaxed line-clamp-1 break-all">
+          <div className="flex-1 leading-relaxed truncate min-w-0">
             {item.title}
           </div>
-        </div>
       </div>
     </div>
   );
@@ -225,12 +226,16 @@ export default function CodingCommunity({
   onQuestionSelect,
   searchQuery: externalSearchQuery,
   onSearchChange,
+  searchPlaceholder,
   questions: propQuestions,
   categories: propCategories
 }: CodingCommunityProps) {
   const { data: session } = useSession();
   const [hotLimit, setHotLimit] = useState(10);
   const [hotExpandedLimit, setHotExpandedLimit] = useState(20);
+  
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -260,17 +265,126 @@ export default function CodingCommunity({
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const setSearchQuery = onSearchChange || setInternalSearchQuery;
 
+  const filteredSearchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    return questions.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [questions, searchQuery]);
+
+  // Click outside handler for search
+  useEffect(() => {
+    function handleClickOutsideSearch(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutsideSearch);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideSearch);
+    };
+  }, []);
+
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [solutionHtml, setSolutionHtml] = useState('');
   const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
   const [transcriptHtml, setTranscriptHtml] = useState('');
   const [activeTab, setActiveTab] = useState('solution');
-  const [isLoading, setIsLoading] = useState(true);
+  // Initialize isLoading based on props availability to avoid unnecessary loading state if data is already there
+  const [isLoading, setIsLoading] = useState(!(propQuestions && propCategories));
+  // Skeleton transition state
+  const [showSkeleton, setShowSkeleton] = useState(true);
+
+  // Track mount time to ensure minimum loading display if needed
+  const mountTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (!isLoading) {
+      // Data loaded, wait for fade out animation before removing skeleton from DOM
+      const timer = setTimeout(() => {
+        setShowSkeleton(false);
+      }, 500); // Match CSS duration
+      return () => clearTimeout(timer);
+    } else {
+      setShowSkeleton(true);
+    }
+  }, [isLoading]);
+
   const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isHotExpanded, setIsHotExpanded] = useState(false);
   const contentScrollRef = useRef<HTMLDivElement>(null);
+
+  // Floating Note Icon Visibility State
+  const [showNoteIcon, setShowNoteIcon] = useState(true);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Check localStorage on mount
+    const savedVisibility = localStorage.getItem('noteIconVisible');
+    if (savedVisibility === 'false') {
+      setShowNoteIcon(false);
+    }
+
+    // Listen for custom event to re-enable icon
+    const handleShowIcon = () => {
+      setShowNoteIcon(true);
+      localStorage.setItem('noteIconVisible', 'true');
+    };
+
+    window.addEventListener('SHOW_NOTE_ICON', handleShowIcon);
+    return () => {
+      window.removeEventListener('SHOW_NOTE_ICON', handleShowIcon);
+    };
+  }, []);
+
+  // Resizable Sidebar Logic
+  const [sidebarWidth, setSidebarWidth] = useState(390);
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (mouseMoveEvent: MouseEvent) => {
+      if (isResizing && sidebarRef.current) {
+        const sidebarLeft = sidebarRef.current.getBoundingClientRect().left;
+        const newWidth = mouseMoveEvent.clientX - sidebarLeft;
+        // Min 240px, Max 600px
+        if (newWidth >= 240 && newWidth <= 600) {
+          setSidebarWidth(newWidth);
+        }
+      }
+    },
+    [isResizing]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing, resize, stopResizing]);
 
   const isFavorite = useMemo(() => {
     return selectedQuestion ? favoriteIds.has(selectedQuestion.id) : false;
@@ -496,11 +610,30 @@ export default function CodingCommunity({
 
   useEffect(() => {
     if (propQuestions && propCategories) {
-      setIsLoading(false);
+      // If we started with loading=true (because props were missing initially), 
+      // enforce a minimum loading time to avoid flashing
+      if (isLoading) {
+        const elapsedTime = Date.now() - mountTimeRef.current;
+        const minLoadingTime = 800;
+        
+        if (elapsedTime < minLoadingTime) {
+          const timer = setTimeout(() => {
+            setIsLoading(false);
+          }, minLoadingTime - elapsedTime);
+          return () => clearTimeout(timer);
+        } else {
+          setIsLoading(false);
+        }
+      } else {
+        // If already loaded (SSR case), just ensure state is synced
+        setIsLoading(false);
+      }
       return;
     }
 
     const fetchData = async () => {
+      // Reset start time for client-side fetch
+      const fetchStartTime = Date.now();
       try {
         const [questionsData, categoriesData] = await Promise.all([
           api.get<QuestionItem[]>('/questions'),
@@ -513,7 +646,17 @@ export default function CodingCommunity({
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
-        setIsLoading(false);
+        // Ensure minimum skeleton display time
+        const elapsedTime = Date.now() - fetchStartTime;
+        const minLoadingTime = 800; // Minimum 800ms loading time
+        
+        if (elapsedTime < minLoadingTime) {
+          setTimeout(() => {
+            setIsLoading(false);
+          }, minLoadingTime - elapsedTime);
+        } else {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -586,12 +729,32 @@ export default function CodingCommunity({
     return result;
   }, [questions, searchQuery, viewMode, favoriteIds]);
 
-  // Hot Questions sorted by hotScore
-  const hotQuestions = useMemo(() => {
+  const [hotQuestionsOffset, setHotQuestionsOffset] = useState(0);
+  const [isRefreshingHot, setIsRefreshingHot] = useState(false);
+
+  // Hot Questions sorted by hotScore (Pool of top 50)
+  const allHotQuestions = useMemo(() => {
     return [...questions]
       .sort((a, b) => (b.hotScore || 0) - (a.hotScore || 0))
-      .slice(0, 20);
+      .slice(0, 50);
   }, [questions]);
+
+  const hotQuestions = useMemo(() => {
+    const start = hotQuestionsOffset % Math.max(1, allHotQuestions.length);
+    const end = start + 10;
+    let result = allHotQuestions.slice(start, end);
+    // If not enough items, wrap around
+    if (result.length < 10 && allHotQuestions.length > 10) {
+        result = [...result, ...allHotQuestions.slice(0, 10 - result.length)];
+    }
+    return result;
+  }, [allHotQuestions, hotQuestionsOffset]);
+
+  const handleRefreshHot = () => {
+    setIsRefreshingHot(true);
+    setTimeout(() => setIsRefreshingHot(false), 500); // Animation duration
+    setHotQuestionsOffset(prev => (prev + 10) % Math.max(10, allHotQuestions.length));
+  };
 
   // Video Preview Component
   const VideoPreview = ({ url, title }: { url: string; title: string }) => {
@@ -746,17 +909,58 @@ export default function CodingCommunity({
       )}
 
       {/* Sidebar */}
-      <div className="w-[320px] bg-neutral-white flex flex-col shadow-[0_4px_12px_rgba(45,31,31,0.03)] h-full overflow-hidden rounded-xl border border-primary-100 shrink-0">
+      <div 
+        ref={sidebarRef}
+        style={{ width: sidebarWidth }}
+        className="relative flex flex-col h-full shrink-0"
+      >
+        {/* Resizer Handle */}
+        <div
+          onMouseDown={startResizing}
+          className={`absolute -right-[15px] top-0 bottom-0 w-[10px] cursor-col-resize z-50 flex justify-center items-center hover:bg-primary-200/30 transition-colors rounded-full my-2 ${isResizing ? 'bg-primary-200/50' : ''}`}
+          title="拖动调整宽度"
+        >
+          <div className="w-[2px] h-8 bg-primary-300 rounded-full" />
+        </div>
         
-        <div className="flex-1 overflow-y-auto p-[10px] m-0 pt-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+        <div className="flex-1 overflow-y-auto pl-[10px] pr-0.5 pb-[10px] m-0 pt-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full">
           {isLoading ? (
-            <div className="p-4 text-center text-primary-400 text-sm">加载中...</div>
-          ) : (searchQuery || viewMode === 'favorites-only') ? (
-             // Search Mode or Favorites Only Mode: Flat List
+            <div className="px-3 pb-2 pt-2 animate-pulse select-none">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="mb-4">
+                  {/* Category Header Skeleton */}
+                  <div className="flex items-center py-1 px-2 gap-3 mb-2">
+                    <div className="w-3 h-3 rounded bg-primary-200/50 shrink-0" />
+                    <div className="h-4 bg-primary-200/50 rounded w-24" />
+                    <div className="ml-auto w-8 h-4 bg-primary-100/50 rounded-full" />
+                  </div>
+                  
+                  {/* Fake items for first few categories */}
+                  {i <= 2 && (
+                    <div className="pl-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                         <div className="w-4 h-3 bg-primary-100/50 rounded shrink-0" />
+                         <div className="h-3 bg-primary-100/50 rounded w-3/4" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <div className="w-4 h-3 bg-primary-100/50 rounded shrink-0" />
+                         <div className="h-3 bg-primary-100/50 rounded w-1/2" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <div className="w-4 h-3 bg-primary-100/50 rounded shrink-0" />
+                         <div className="h-3 bg-primary-100/50 rounded w-2/3" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (viewMode === 'favorites-only') ? (
+             // Favorites Only Mode: Flat List
             <ul className="list-none m-0 p-0">
               {filteredQuestions.length === 0 ? (
                 <div className="p-4 text-center text-primary-400 text-sm">
-                  {viewMode === 'favorites-only' && !searchQuery ? '暂无收藏题目' : '无匹配题目'}
+                  {viewMode === 'favorites-only' ? '暂无收藏题目' : '无匹配题目'}
                 </div>
               ) : (
                 filteredQuestions.map((item) => (
@@ -779,35 +983,7 @@ export default function CodingCommunity({
              // Tree View Mode
             <div className="flex flex-col">
               <div className="px-3 pb-2 pt-0">
-                {/* Hot Questions Category */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2.5 px-2 py-3 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 text-orange-500 shadow-sm ring-1 ring-orange-100">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="transform transition-transform hover:scale-110">
-                        <path d="M12 2a5 5 0 0 1 3.5 1.5 5 5 0 0 1 1 3.5v.5c0 3.5-2.5 6-5.5 6S5.5 11 5.5 7.5v-.5a5 5 0 0 1 1-3.5A5 5 0 0 1 12 2z"></path>
-                        <path d="M12 14c-4 0-6 2-6 5v2h12v-2c0-3-2-5-6-5z"></path>
-                        <path d="M12 2v.5"></path>
-                        <path d="M15.5 5.5l.5-.5"></path>
-                        <path d="M8.5 5.5l-.5-.5"></path>
-                      </svg>
-                    </div>
-                    <span className="text-[15px] font-bold text-gray-800 tracking-tight">热门题目</span>
-                    <span className="ml-auto text-[10px] font-medium text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">TOP 20</span>
-                  </div>
-                  
-                  <div className="px-1 mt-1 relative space-y-1">
-                    {hotQuestions.map((item, index) => (
-                      <QuestionListItem 
-                        key={`hot-${item.id}`}
-                        item={item} 
-                        index={index} 
-                        isSelected={selectedQuestion?.id === item.id}
-                        onSelect={selectQuestion}
-                        isHot={true}
-                      />
-                    ))}
-                  </div>
-                </div>
+                {/* Hot Questions Removed */}
 
                 {categories.map((category) => {
                   const categoryQuestions = groupedQuestions[category.id] || [];
@@ -817,46 +993,37 @@ export default function CodingCommunity({
                   if (categoryQuestions.length === 0) return null;
 
                   return (
-                    <div key={category.id} className="mb-1">
+                    <div key={category.id} className="mb-0.5">
                       <div 
                         onClick={() => toggleCategory(category.id)}
                         className={`
-                          flex items-center justify-between px-3 py-3 cursor-pointer rounded-lg transition-all duration-200 group select-none
+                          flex items-center py-2 px-2 cursor-pointer rounded-lg transition-all duration-200 group select-none
                           ${isExpanded 
-                            ? 'bg-gray-100 text-gray-900' 
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'text-primary-900 font-medium' 
+                            : 'text-primary-600 hover:text-primary-900 hover:bg-primary-50'
                           }
                         `}
                       >
-                         <div className="flex items-center gap-3 min-w-0">
-                            {/* Decorative Dot (Only visible when expanded) */}
-                            <div className={`
-                               w-1.5 h-1.5 rounded-full transition-all duration-300 shrink-0
-                               ${isExpanded ? 'bg-primary-500 scale-100' : 'bg-transparent scale-0 w-0'}
-                            `} />
-
-                            <span className={`text-[14px] tracking-tight truncate transition-all duration-200 ${isExpanded ? 'font-bold' : 'font-medium'}`}>
-                              {category.name}
-                            </span>
-                         </div>
-
-                         <div className="flex items-center gap-3">
-                            <span className={`text-[12px] font-medium transition-colors ${
-                              isExpanded ? 'text-gray-500' : 'text-gray-300 group-hover:text-gray-400'
-                            }`}>
-                               {categoryQuestions.length}
-                            </span>
+                         <div className="flex items-center gap-2 min-w-0 w-full">
                             <svg 
-                              className={`w-3.5 h-3.5 transition-transform duration-300 ${isExpanded ? 'rotate-90 text-gray-600' : 'text-gray-300 group-hover:text-gray-500'}`} 
+                              className={`w-4 h-4 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-90 text-primary-500' : 'text-primary-400 group-hover:text-primary-600'}`} 
                               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                             >
                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
+
+                            <span className="text-[14px] tracking-tight truncate min-w-0">
+                              {category.name}
+                            </span>
+                            
+                            <span className="ml-auto text-[11px] text-primary-400 bg-primary-50 px-1.5 py-0.5 rounded-full group-hover:bg-primary-100 transition-colors">
+                               {categoryQuestions.length}
+                            </span>
                          </div>
                       </div>
                       
                       {isExpanded && (
-                        <div className="mt-1 relative px-1 space-y-0.5 animate-in slide-in-from-top-1 fade-in duration-200">
+                        <div className="pl-6 space-y-0.5 animate-in slide-in-from-top-1 fade-in duration-200">
                           {categoryQuestions.map((item, index) => (
                             <QuestionListItem 
                               key={item.id} 
@@ -870,8 +1037,8 @@ export default function CodingCommunity({
                       )}
                     </div>
                   );
-                })}
-              </div>
+                     })}
+                   </div>
             </div>
           )}
         </div>
@@ -886,15 +1053,13 @@ export default function CodingCommunity({
                 <button 
                   onClick={() => {
                     setSelectedQuestion(null);
-                    window.history.pushState({}, '', '/questions');
+                    if (onQuestionSelect) onQuestionSelect(null);
+                    window.history.pushState({}, '', '/');
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-primary-500 hover:text-primary-800 hover:bg-white hover:shadow-sm transition-all duration-200 border border-transparent hover:border-primary-100 group"
-                  title="返回首页"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl text-primary-400 hover:text-accent-copper hover:bg-primary-50 transition-all duration-200 group border border-transparent hover:border-primary-100"
+                  title="返回列表"
                 >
-                  <div className="w-6 h-6 rounded-md bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transform group-hover:-translate-x-0.5 transition-transform"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                  </div>
-                  <span className="text-sm font-medium">返回列表</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                 </button>
                 <div className="flex p-1.5 bg-primary-50 rounded-xl">
                 <button
@@ -1003,11 +1168,11 @@ export default function CodingCommunity({
                    </div>
 
                    {/* User Answer */}
-                   <div className="flex items-start gap-3 flex-row-reverse">
-                     <div className="w-10 h-10 rounded-full bg-accent-copper/10 flex items-center justify-center shrink-0 text-accent-copper font-bold text-sm border border-accent-copper/20">
-                       ME
-                     </div>
-                     <div className="flex-1 min-w-0 flex flex-col items-end max-w-[85%]">
+                  <div className="flex items-start gap-3 flex-row-reverse">
+                    <div className="shrink-0">
+                      <UserAvatar user={session?.user} size="md" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col items-end max-w-[85%]">
                        <div className="bg-primary-50 border border-primary-100 p-4 rounded-2xl rounded-tr-none shadow-sm relative overflow-hidden text-left">
                          {transcriptHtml ? (
                             <MermaidContent 
@@ -1032,158 +1197,218 @@ export default function CodingCommunity({
               </div>
             )}
           </>
+        ) : (initialQuestionId && questions.length === 0) ? (
+          <div className="flex flex-col h-full w-full items-center justify-center p-6 bg-neutral-white/30 text-primary-400">
+            <div className="w-8 h-8 border-4 border-primary-200 border-t-accent-gold rounded-full animate-spin mb-4"></div>
+            <p>正在加载题目...</p>
+          </div>
+        ) : (initialQuestionId && !selectedQuestion) ? (
+          <div className="flex flex-col h-full w-full items-center justify-center p-6 bg-neutral-white/30 text-primary-400">
+             <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mb-4 text-2xl">?</div>
+             <p className="mb-4">未找到该题目</p>
+             <button 
+               onClick={() => {
+                 onQuestionSelect?.(null);
+                 window.history.pushState({}, '', '/');
+               }}
+               className="px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors text-sm"
+             >
+               返回题目列表
+             </button>
+          </div>
         ) : (
           <div className="flex flex-col h-full w-full p-6 overflow-hidden bg-neutral-white/30">
 
             <div className="flex-1 min-h-0 w-full max-w-full mx-auto flex flex-col overflow-y-auto scrollbar-hide px-4">
-              <div className="flex items-center gap-2 mb-4 shrink-0">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white">
-                   <span className="text-sm">🔥</span>
+              <div className="hidden">
+                <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mb-6 text-4xl shadow-inner">
+                  �
                 </div>
-                <h3 className="text-lg font-bold text-primary-900 tracking-tight">热门推荐</h3>
+                {/* SEARCH_BOX_HERE */}
               </div>
-              
-              {/* Top Cards */}
-              <div className="grid grid-cols-4 grid-rows-2 gap-4 mb-6 flex-1 min-w-[800px] min-h-[600px]">
-                {hotQuestions.slice(0, 5).map((item, index) => {
-                  const isTop1 = index === 0;
-                  const isTop2 = index === 1;
-                  const isTop3 = index === 2;
-                  
-                  return (
-                  <div 
-                    key={`hot-grid-${item.id}`}
-                    onClick={() => selectQuestion(item)}
-                    onMouseEnter={() => setHoveredQuestionId(item.id)}
-                    onMouseLeave={() => setHoveredQuestionId(null)}
-                    className={`
-                      relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer group flex flex-col justify-between
-                      ${isTop1 ? 'col-span-2 row-span-2 bg-white border-2 border-red-100 shadow-xl shadow-red-100/50 hover:shadow-2xl hover:shadow-red-200/50' : ''}
-                      ${isTop2 ? 'col-span-1 row-span-1 bg-gradient-to-br from-[#FFFAF0] to-white border border-orange-100 shadow-lg shadow-orange-100/30 hover:shadow-xl hover:shadow-orange-200/40' : ''}
-                      ${isTop3 ? 'col-span-1 row-span-1 bg-gradient-to-br from-[#FFFDF0] to-white border border-yellow-100 shadow-lg shadow-yellow-100/30 hover:shadow-xl hover:shadow-yellow-200/40' : ''}
-                      ${index > 2 ? 'col-span-1 row-span-1 bg-white border border-primary-100 hover:border-accent-copper/50 hover:shadow-md' : ''}
-                    `}
-                  >
-
-
-                    {/* Background Decor Numbers */}
-                    {(index < 3) && (
-                      <div className={`absolute -right-2 -bottom-4 font-black leading-none opacity-5 select-none pointer-events-none transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 ${
-                        isTop1 ? 'text-[100px] text-red-600' : isTop2 ? 'text-[80px] text-orange-500' : 'text-[80px] text-yellow-500'
-                      }`}>
-                        {index + 1}
-                      </div>
-                    )}
-
-                    {/* Video Preview Popup - Disabled for Top 1 as it has dedicated video block */}
-                    {hoveredQuestionId === item.id && !isTop1 && (item.videoUrl || item.id === hotQuestions[0].id) && (
-                      <VideoPreview 
-                        url={item.videoUrl || "https://www.w3schools.com/html/mov_bbb.mp4"} 
-                        title={item.title} 
-                      />
-                    )}
-
-                    <div className="p-4 z-10 flex flex-col h-full">
-                      <div className="flex items-start justify-between gap-3 mb-2 shrink-0">
-                         <div className={`inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-black italic shadow-sm shrink-0 ${
-                           isTop1 ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white ring-1 ring-red-100' :
-                           isTop2 ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white ring-1 ring-orange-100' :
-                           isTop3 ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white ring-1 ring-yellow-100' :
-                           'bg-primary-100 text-primary-600'
-                         }`}>
-                           {index < 3 ? 'TOP ' + (index + 1) : '#' + (index + 1)}
-                         </div>
-                         {index < 3 && (
-                           <div className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/50 border border-black/5 text-primary-600 backdrop-blur-sm shrink-0">
-                             🔥 爆表
-                           </div>
-                         )}
-                      </div>
-
-                      <h4 className={`font-bold leading-snug group-hover:text-accent-copper transition-colors mb-2 ${
-                        isTop1 ? 'text-xl text-primary-900 line-clamp-2' : 
-                        index < 3 ? 'text-base text-primary-900 line-clamp-2' : 
-                        'text-sm text-primary-800 line-clamp-2'
-                      }`}>
-                        {item.title}
-                      </h4>
-
-                      {isTop1 ? (
-                        <p className="text-primary-500 text-xs line-clamp-2 leading-relaxed opacity-80 mb-3">
-                          这是一道非常经典的前端面试题，考察了浏览器渲染机制的核心流程。掌握它不仅能应对面试，更能帮助你理解性能优化的底层原理。
-                        </p>
-                      ) : (
-                        <div className="relative">
-                           <div className="absolute top-0 left-0 w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-xs border border-primary-100 -mt-1 select-none">
-                              {['👨‍💻', '👩‍💻', '🧑‍🎓', '🦁', '🦊', '🐼', '🐯', '🐮', '🐵', '🚀'][item.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10]}
-                           </div>
-                           <p className="text-primary-500 text-xs line-clamp-4 leading-relaxed opacity-80 mb-3 break-all indent-[3em]">
-                            {item.transcript 
-                              ? item.transcript.replace(/[#*`\[\]()>]/g, '').replace(/\s+/g, ' ').slice(0, 300)
-                              : (item.solution 
-                                  ? item.solution.replace(/[#*`\[\]()>]/g, '').replace(/\s+/g, ' ').slice(0, 300)
-                                  : '暂无详细记录...'
-                                )
-                            }
-                           </p>
-                        </div>
-                      )}
-
-                      {/* Top 1 Video Block */}
-                      {isTop1 && (
+               <div className="flex flex-col items-center justify-start h-full w-full max-w-3xl mx-auto px-4 pt-[15vh]">
+                <div className="w-full relative group" ref={searchContainerRef}>
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                      <svg 
+                        className={`h-6 w-6 text-primary-400 group-focus-within:text-accent-gold transition-all duration-300`} 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      className="block w-full pl-12 pr-12 py-4 border border-primary-200 rounded-2xl leading-5 bg-white text-primary-900 font-medium tracking-wide placeholder-primary-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-accent-gold/30 focus:border-accent-gold/50 text-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                      placeholder={searchPlaceholder || "搜索面试题..."}
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setIsSearchFocused(true);
+                      }}
+                      onFocus={() => setIsSearchFocused(true)}
+                    />
+                    {searchQuery && isSearchFocused && (
+                      <>
                         <div 
-                          className="relative w-full flex-1 min-h-0 rounded-xl overflow-hidden mb-3 group-hover:shadow-md transition-all bg-black/5 z-20"
-                          onClick={(e) => e.stopPropagation()} 
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setIsSearchFocused(true);
+                          }}
                         >
-                          <video 
-                            src={item.videoUrl || "https://www.w3schools.com/html/mov_bbb.mp4"}
-                            className="w-full h-full object-cover"
-                            controls
-                            muted
-                            playsInline
-                            // Removed autoPlay and loop as requested: default paused and muted
-                          />
-                          <div className="absolute top-2 right-2 bg-black/20 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1 pointer-events-none">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                            Video
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary-400 hover:text-accent-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                        
+                        {/* Search Dropdown Results */}
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-primary-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 py-2">
+                          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                           {filteredSearchResults.length > 0 ? (
+                              <ul className="">
+                                {filteredSearchResults.map(q => (
+                                   <li 
+                                     key={q.id}
+                                     className="px-6 py-3 hover:bg-primary-50 cursor-pointer border-b border-primary-50 last:border-none transition-colors group/item"
+                                    onClick={() => {
+                                      setSearchQuery('');
+                                      setIsSearchFocused(false);
+                                      if (onQuestionSelect) onQuestionSelect(q.id);
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-sm font-medium text-primary-900 truncate group-hover/item:text-accent-copper transition-colors">
+                                        {q.title.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) => 
+                                          part.toLowerCase() === searchQuery.toLowerCase() ? 
+                                            <span key={i} className="text-accent-copper font-bold">{part}</span> : 
+                                            part
+                                        )}
+                                      </div>
+                                      <span className="text-xs text-primary-500 bg-primary-100/50 px-2 py-1 rounded border border-primary-100 whitespace-nowrap ml-3">
+                                        {categories.find(c => c.id === q.categoryId)?.name || '未分类'}
+                                      </span>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                           ) : (
+                              <div className="p-8 text-center flex flex-col items-center justify-center text-primary-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <span className="text-sm">未找到相关内容</span>
+                              </div>
+                           )}
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="mt-auto pt-3 flex items-center justify-between border-t border-black/5 shrink-0 min-w-0">
-                         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border truncate ${
-                             isTop1 ? 'bg-red-50 border-red-100 text-red-600' : 
-                             isTop2 ? 'bg-orange-50 border-orange-100 text-orange-600' :
-                             isTop3 ? 'bg-yellow-50 border-yellow-100 text-yellow-700' :
-                             'bg-primary-50 border-primary-100 text-primary-500'
-                           }`}>
-                             {categories.find(c => c.id === item.categoryId)?.name || '未分类'}
-                           </span>
-                           <span className="text-primary-400 text-[10px] flex items-center gap-0.5 shrink-0">
-                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                             </svg>
-                             {item.hotScore || 0}
-                           </span>
-                         </div>
-                         
-                         <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shrink-0 ${
-                            isTop1 ? 'bg-red-500 text-white shadow-md shadow-red-500/30' :
-                            isTop2 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' :
-                            isTop3 ? 'bg-yellow-500 text-white shadow-md shadow-yellow-500/30' :
-                            'bg-primary-100 text-primary-400 group-hover:bg-accent-copper group-hover:text-white'
-                         }`}>
-                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </>
+                    )}
+                 </div>
+                 
+                 {/* Quick Tips */}
+                 <div className={`mt-8 flex flex-wrap justify-center gap-3 opacity-60 hover:opacity-100 transition-all duration-300 visible opacity-60 h-auto`}>
+                   {['React', 'Vue', 'Next.js', '性能优化', '算法'].map(tag => (
+                     <button 
+                       key={tag}
+                       onClick={() => {
+                         setSearchQuery(tag);
+                         setIsSearchFocused(true);
+                       }}
+                       className="px-4 py-1.5 rounded-full bg-white border border-primary-100 text-sm text-primary-600 hover:border-accent-copper hover:text-accent-copper transition-colors shadow-sm"
+                     >
+                       {tag}
+                     </button>
+                   ))}
+                 </div>
+
+                 {/* Hot Questions List */}
+                <div className={`w-full flex justify-center transition-all duration-300 visible opacity-100 translate-y-0`}>
+                  <div className="mt-8 w-full max-w-2xl bg-white/50 backdrop-blur-sm rounded-2xl border border-white/50 shadow-sm p-6">
+                     <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-bold text-primary-800 flex items-center gap-2">
+                          <div className="p-1 rounded-md bg-gradient-to-br from-orange-400 to-red-500 shadow-sm text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.45-.412-1.725a1 1 0 00-2 0c.001.046.002.092.003.139.002.096.005.196.008.3.006.216.015.45.029.7.027.498.07.994.137 1.487.135.986.417 1.948.835 2.857A9.97 9.97 0 0010 18a9.97 9.97 0 005.323-2.637 1 1 0 00-.323-1.637c-.34-.145-.69-.264-1.048-.354-.647-.164-1.306-.272-1.968-.323a1.106 1.106 0 01-.977-1.332c.118-.617.29-1.228.513-1.828.225-.602.502-1.19.829-1.758.324-.564.693-1.107 1.104-1.623.398-.5.842-.96 1.328-1.372a1 1 0 00-.395-1.734z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          社区热榜
+                        </span>
+                        <button 
+                          onClick={handleRefreshHot}
+                          className="text-xs text-primary-500 hover:text-primary-800 transition-colors flex items-center gap-1 group/refresh px-2 py-1 rounded-md hover:bg-primary-50"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 ${isRefreshingHot ? 'animate-spin' : 'group-hover/refresh:rotate-180 transition-transform duration-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          换一批
+                        </button>
+                     </div>
+                     <div className="relative grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                      {/* Real Content Layer - Always render if data exists */}
+                      <div className={`col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}>
+                        {hotQuestions.length > 0 ? (
+                          hotQuestions.map((q, index) => {
+                           const rank = hotQuestionsOffset + index + 1;
+                           return (
+                             <div 
+                               key={q.id}
+                             className="flex items-center gap-3 group cursor-pointer p-2 rounded-lg hover:bg-white/60 transition-all duration-200"
+                             onClick={() => {
+                               if (onQuestionSelect) onQuestionSelect(q.id);
+                             }}
+                           >
+                              <span className={`text-sm font-black italic w-6 text-center shrink-0 font-mono ${
+                                rank === 1 ? 'text-amber-500' :
+                                rank === 2 ? 'text-slate-500' :
+                                rank === 3 ? 'text-orange-700' :
+                                'text-primary-300 font-medium not-italic'
+                              }`}>
+                                {rank}
+                              </span>
+                              <span className="text-sm text-primary-700 group-hover:text-primary-900 truncate flex-1 transition-colors font-medium">
+                                {q.title}
+                              </span>
+                              {rank <= 3 && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 scale-90 ${
+                                    rank === 1 ? 'bg-amber-100 text-amber-700' :
+                                    'bg-orange-50 text-orange-600'
+                                }`}>
+                                    Hot
+                                </span>
+                              )}
+                           </div>
+                         );
+                       })
+                      ) : (
+                         /* No Data State */
+                         <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center py-12 text-primary-400 min-h-[300px]">
+                           <svg className="w-12 h-12 mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                            </svg>
+                           <span className="text-sm">暂无热门问题</span>
                          </div>
-                      </div>
-                    </div>
-                  </div>
-                )})}
-              </div>
+                      )}
+                       </div>
+
+                       {/* Skeleton Layer - Overlay */}
+                       {showSkeleton && (
+                         <div className={`absolute inset-0 w-full bg-white/50 backdrop-blur-sm z-10 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 transition-opacity duration-500 ${!isLoading ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                          {Array.from({ length: 10 }).map((_, i) => (
+                            <div key={i} className="flex items-center gap-3 p-2 rounded-lg animate-pulse">
+                               <div className="w-6 h-4 rounded bg-primary-200/50 shrink-0" />
+                               <div className="h-4 bg-primary-200/50 rounded flex-1" />
+                            </div>
+                          ))}
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 </div>
+               </div>
 
 
             </div>
@@ -1437,6 +1662,37 @@ export default function CodingCommunity({
           {activeTooltip.content}
         </div>
       )} */}
+
+      {/* Floating Note Button */}
+      {session?.user && showNoteIcon && (
+        <button
+          className="absolute bottom-8 right-8 w-14 h-14 bg-accent-gold text-white rounded-full shadow-lg hover:bg-accent-gold/90 transition-all duration-300 flex items-center justify-center z-50 hover:scale-110 active:scale-95 group"
+          title="我的笔记 (右键关闭)"
+          onClick={() => {
+            setIsNoteModalOpen(true);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setShowNoteIcon(false);
+            localStorage.setItem('noteIconVisible', 'false');
+            showToast('笔记图标已隐藏，可在“我的笔记”中重新开启');
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </button>
+      )}
+
+      {/* NotePad Modal */}
+      <NotePadModal 
+        isOpen={isNoteModalOpen} 
+        onClose={() => setIsNoteModalOpen(false)} 
+      />
 
     </div>
   );

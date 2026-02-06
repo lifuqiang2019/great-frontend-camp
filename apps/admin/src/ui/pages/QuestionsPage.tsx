@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Button, Space, Card, message, Popconfirm, Modal, InputNumber, Input, Select, Radio } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, SearchOutlined, ClearOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, SearchOutlined, ClearOutlined, SwapOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import http from '../../lib/request';
 
@@ -57,6 +57,10 @@ export const QuestionsPage: React.FC = () => {
   const [cleanThreshold, setCleanThreshold] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryToClean, setSelectedCategoryToClean] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [targetCategory, setTargetCategory] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -158,6 +162,25 @@ export const QuestionsPage: React.FC = () => {
     });
   };
 
+  const handleConfirmMove = async () => {
+    if (!targetCategory) return;
+    
+    try {
+      setMoving(true);
+      await Promise.all(selectedRowKeys.map((id) => http.patch(`/questions/${id}`, { categoryId: targetCategory })));
+      message.success(`已成功移动 ${selectedRowKeys.length} 个题目`);
+      setSelectedRowKeys([]);
+      fetchQuestions();
+      setIsMoveModalOpen(false);
+      setTargetCategory(null);
+    } catch (error) {
+      console.error(error);
+      message.error('移动失败');
+    } finally {
+      setMoving(false);
+    }
+  };
+
   const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
     setSelectedRowKeys(newSelectedRowKeys);
   };
@@ -168,12 +191,21 @@ export const QuestionsPage: React.FC = () => {
   };
 
   const filteredQuestions = useMemo(() => {
-    if (!searchText) return questions;
-    return questions.filter(q => 
-      q.title.toLowerCase().includes(searchText.toLowerCase()) || 
-      q.category?.name.toLowerCase().includes(searchText.toLowerCase())
-    );
-  }, [questions, searchText]);
+    let result = questions;
+
+    if (selectedCategory) {
+      result = result.filter(q => q.categoryId === selectedCategory);
+    }
+
+    if (searchText) {
+      result = result.filter(q => 
+        q.title.toLowerCase().includes(searchText.toLowerCase()) || 
+        q.category?.name.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+
+    return result;
+  }, [questions, searchText, selectedCategory]);
 
   const columns = [
     {
@@ -181,6 +213,13 @@ export const QuestionsPage: React.FC = () => {
       key: 'index',
       width: 80,
       render: (_: unknown, __: Question, index: number) => index + 1,
+    },
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: 100,
+      render: (id: string) => <span title={id} style={{ fontFamily: 'monospace' }}>{id.substring(0, 6)}</span>,
     },
     {
       title: '题目',
@@ -279,12 +318,39 @@ export const QuestionsPage: React.FC = () => {
           <ExclamationCircleOutlined /> 此操作不可恢复，请谨慎操作。
         </p>
       </Modal>
+      <Modal
+        title="批量移动分类"
+        open={isMoveModalOpen}
+        onOk={handleConfirmMove}
+        onCancel={() => setIsMoveModalOpen(false)}
+        confirmLoading={moving}
+        okText="确认移动"
+        cancelText="取消"
+        okButtonProps={{ disabled: !targetCategory }}
+      >
+        <p>请选择要移动到的目标分类：</p>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="选择目标分类"
+          value={targetCategory}
+          onChange={setTargetCategory}
+          options={categories.map(c => ({ label: c.name, value: c.id }))}
+        />
+      </Modal>
       <Card
         title="题目列表"
         extra={
           <Space>
+            <Select
+              style={{ width: 150 }}
+              placeholder="筛选分类"
+              allowClear
+              value={selectedCategory}
+              onChange={setSelectedCategory}
+              options={categories.map(c => ({ label: c.name, value: c.id }))}
+            />
             <Input 
-              placeholder="搜索题目或分类" 
+              placeholder="搜索题目" 
               prefix={<SearchOutlined />} 
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
@@ -292,13 +358,21 @@ export const QuestionsPage: React.FC = () => {
               allowClear
             />
             {selectedRowKeys.length > 0 && (
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
-                onClick={handleBatchDelete}
-              >
-                批量删除 ({selectedRowKeys.length})
-              </Button>
+              <>
+                <Button 
+                  icon={<SwapOutlined />} 
+                  onClick={() => setIsMoveModalOpen(true)}
+                >
+                  批量移动 ({selectedRowKeys.length})
+                </Button>
+                <Button 
+                  danger 
+                  icon={<DeleteOutlined />} 
+                  onClick={handleBatchDelete}
+                >
+                  批量删除 ({selectedRowKeys.length})
+                </Button>
+              </>
             )}
             <Button 
               icon={<DeleteOutlined />} 

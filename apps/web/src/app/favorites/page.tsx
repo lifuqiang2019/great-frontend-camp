@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import CodingCommunity from '@/components/CodingCommunity';
 import LoginModal from '@/components/LoginModal';
+import { UserAvatar } from '@/components/UserAvatar';
 import { useSession, signOut } from '@/lib/auth-client';
 
 export default function FavoritesPage() {
@@ -96,17 +97,12 @@ export default function FavoritesPage() {
             ))}
           </ul>
           <div className="flex items-center min-w-[100px] justify-end relative" ref={userMenuRef}>
-            <div 
-              className="w-9 h-9 bg-primary-800 rounded-full flex items-center justify-center text-accent-gold text-[12px] cursor-pointer font-bold border border-primary-700 hover:bg-primary-700 transition-colors shadow-sm overflow-hidden"
+            <UserAvatar 
+              user={session?.user} 
+              size="md"
               onClick={handleAvatarClick}
-              title={session ? `已登录: ${session.user.name || session.user.email}` : "点击登录"}
-            >
-              {session?.user.image ? (
-                <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
-              ) : (
-                session?.user.name ? session.user.name.charAt(0).toUpperCase() : "登录"
-              )}
-            </div>
+              className="cursor-pointer hover:ring-2 ring-primary-200 transition-all"
+            />
 
             {/* User Dropdown Menu */}
             {isUserMenuOpen && session && (

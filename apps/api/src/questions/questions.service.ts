@@ -65,6 +65,10 @@ export class QuestionsService {
         include: {
           category: true,
         },
+        orderBy: [
+          { hotScore: 'desc' },
+          { createdAt: 'desc' },
+        ],
       });
       
       if (questions.length === 0) {
@@ -117,6 +121,9 @@ export class QuestionsService {
     }
 
     try {
+      // Async increment view count
+      this.incrementViewCount(id).catch(err => console.error(`Failed to increment view count for ${id}`, err));
+
       return await this.prisma.question.findUnique({
         where: { id },
         include: {
@@ -126,6 +133,50 @@ export class QuestionsService {
     } catch (error) {
       console.error(`Failed to fetch question ${id} from DB:`, error);
       throw error;
+    }
+  }
+
+  async incrementViewCount(id: string) {
+    try {
+      // 1. Increment viewCount
+      const question = await this.prisma.question.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+      });
+
+      // 2. Recalculate hotScore
+      await this.updateHotScore(id);
+    } catch (error) {
+      console.error(`Error incrementing view count for ${id}:`, error);
+    }
+  }
+
+  async updateHotScore(id: string) {
+    try {
+      const question = await this.prisma.question.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { favorites: true },
+          },
+        },
+      });
+
+      if (!question) return;
+
+      // Algorithm:
+      // HotScore = Views * 1 + Favorites * 10
+      // Simple and effective for early stage
+      const views = question.viewCount || 0;
+      const favorites = question['_count']?.favorites || 0;
+      const score = views + (favorites * 10);
+
+      await this.prisma.question.update({
+        where: { id },
+        data: { hotScore: score },
+      });
+    } catch (error) {
+      console.error(`Error updating hot score for ${id}:`, error);
     }
   }
 
