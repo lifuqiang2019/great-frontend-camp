@@ -103,7 +103,7 @@ export class AuthController {
             });
             
             try {
-              socket.connect(Number(proxyPort), proxyHost);
+              socket.connect({ port: Number(proxyPort), host: proxyHost });
             } catch (e) {
               resolve(false);
             }

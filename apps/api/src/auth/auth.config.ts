@@ -49,7 +49,7 @@ export async function getAuth() {
       });
       
       try {
-        socket.connect(proxyPort, proxyHost);
+        socket.connect({ port: proxyPort, host: proxyHost });
       } catch (e) {
         resolve(false);
       }
