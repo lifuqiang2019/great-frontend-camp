@@ -124,6 +124,47 @@ export class AuthController {
       report.tests.proxyTcp = { status: 'skipped', message: 'No proxy configured' };
     }
 
+    // Test 4: SMTP Auth (Real Login)
+    try {
+      console.log(`🔍 [Debug] Testing SMTP Authentication...`);
+      const smtpPort = Number(process.env.SMTP_PORT) || 587;
+      const isSecure = smtpPort === 465;
+      
+      const transporterConfig: any = {
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: smtpPort,
+        secure: isSecure,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 10000,
+      };
+
+      // If proxy is working, use it (similar logic to sendOtp)
+      if (report.tests.proxyTcp && report.tests.proxyTcp.status === 'ok') {
+          const proxyHost = process.env.PROXY_HOST;
+          const proxyPort = process.env.PROXY_PORT;
+          transporterConfig.getSocket = (options: any, callback: any) => {
+            const socksOptions: any = {
+                proxy: { host: proxyHost, port: Number(proxyPort), type: 5 },
+                command: 'connect',
+                destination: { host: options.host, port: options.port }
+            };
+            SocksClient.createConnection(socksOptions)
+                .then(info => callback(null, { connection: info.socket }))
+                .catch(err => callback(err));
+          };
+      }
+
+      const transporter = nodemailer.createTransport(transporterConfig);
+      await transporter.verify();
+      report.tests.smtpAuth = { status: 'ok', message: 'SMTP Authentication Successful' };
+    } catch (e: any) {
+      report.tests.smtpAuth = { status: 'failed', error: e.message, code: e.code, response: e.response };
+    }
+
     return res.json(report);
   }
 
