@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import * as net from 'net';
 
 const prisma = new PrismaClient();
 
@@ -24,14 +25,48 @@ export async function getAuth() {
 
   // Configure Global Proxy for Fetch (Better-Auth uses fetch internally)
   if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
-    try {
-      const { setGlobalDispatcher, ProxyAgent } = await dynamicImport("undici");
-      const proxyUrl = `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
-      const dispatcher = new ProxyAgent(proxyUrl);
-      setGlobalDispatcher(dispatcher);
-      console.log(`🌐 Global Fetch Proxy Configured: ${proxyUrl}`);
-    } catch (error) {
-      console.warn("   ⚠️ Failed to configure global proxy with undici:", error);
+    const proxyHost = process.env.PROXY_HOST;
+    const proxyPort = Number(process.env.PROXY_PORT);
+
+    // Quick check if proxy is reachable
+    const isProxyAvailable = await new Promise<boolean>((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(200); // 200ms timeout
+      
+      socket.on('connect', () => {
+          socket.destroy();
+          resolve(true);
+      });
+      
+      socket.on('timeout', () => {
+          socket.destroy();
+          resolve(false);
+      });
+      
+      socket.on('error', (err) => {
+          socket.destroy();
+          resolve(false);
+      });
+      
+      try {
+        socket.connect(proxyPort, proxyHost);
+      } catch (e) {
+        resolve(false);
+      }
+    });
+
+    if (isProxyAvailable) {
+      try {
+        const { setGlobalDispatcher, ProxyAgent } = await dynamicImport("undici");
+        const proxyUrl = `http://${proxyHost}:${proxyPort}`;
+        const dispatcher = new ProxyAgent(proxyUrl);
+        setGlobalDispatcher(dispatcher);
+        console.log(`🌐 [AuthConfig] Global Fetch Proxy Configured: ${proxyUrl}`);
+      } catch (error) {
+        console.warn("   ⚠️ Failed to configure global proxy with undici:", error);
+      }
+    } else {
+      console.warn(`⚠️ [AuthConfig] Proxy configured at ${proxyHost}:${proxyPort} but not reachable. Falling back to direct connection.`);
     }
   }
 

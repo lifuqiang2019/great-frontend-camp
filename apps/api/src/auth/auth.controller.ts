@@ -4,6 +4,7 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import * as nodemailer from "nodemailer";
 import { SocksClient } from 'socks';
+import * as net from 'net';
 
 // Hack to prevent TypeScript from converting dynamic import to require
 const dynamicImport = new Function("specifier", "return import(specifier)");
@@ -77,8 +78,43 @@ export class AuthController {
         socketTimeout: 30000
       };
 
-      const proxyHost = process.env.PROXY_HOST;
-      const proxyPort = process.env.PROXY_PORT;
+      let proxyHost = process.env.PROXY_HOST;
+      let proxyPort = process.env.PROXY_PORT;
+
+      if (proxyHost && proxyPort) {
+        // Quick check if proxy is reachable
+        const isProxyAvailable = await new Promise<boolean>((resolve) => {
+            const socket = new net.Socket();
+            socket.setTimeout(200); // 200ms timeout
+            
+            socket.on('connect', () => {
+                socket.destroy();
+                resolve(true);
+            });
+            
+            socket.on('timeout', () => {
+                socket.destroy();
+                resolve(false);
+            });
+            
+            socket.on('error', (err) => {
+                socket.destroy();
+                resolve(false);
+            });
+            
+            try {
+              socket.connect(Number(proxyPort), proxyHost);
+            } catch (e) {
+              resolve(false);
+            }
+        });
+
+        if (!isProxyAvailable) {
+           console.warn(`⚠️ [SendOTP] Proxy configured at ${proxyHost}:${proxyPort} but not reachable. Falling back to direct connection.`);
+           proxyHost = undefined;
+           proxyPort = undefined;
+        }
+      }
 
       if (proxyHost && proxyPort) {
         console.log(`📧 [SendOTP] Configuring Proxy via SocksClient: ${proxyHost}:${proxyPort}`);
