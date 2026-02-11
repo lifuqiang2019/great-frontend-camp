@@ -42,6 +42,8 @@ export class AuthController {
       env: {
         smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com (default)',
         smtpPort: process.env.SMTP_PORT || '587 (default)',
+        smtpUser: process.env.SMTP_USER ? '(configured)' : '❌ MISSING',
+        smtpPass: process.env.SMTP_PASS ? '(configured)' : '❌ MISSING',
         proxyHost: process.env.PROXY_HOST || '(not set)',
         proxyPort: process.env.PROXY_PORT || '(not set)',
         nodeEnv: process.env.NODE_ENV
