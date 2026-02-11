@@ -1,10 +1,11 @@
-import { All, Controller, Post, Body, Req, Res, HttpException, HttpStatus } from "@nestjs/common";
+import { All, Controller, Post, Get, Body, Req, Res, HttpException, HttpStatus } from "@nestjs/common";
 import { getAuth } from "./auth.config";
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import * as nodemailer from "nodemailer";
 import { SocksClient } from 'socks';
 import * as net from 'net';
+import * as dns from 'dns';
 
 // Hack to prevent TypeScript from converting dynamic import to require
 const dynamicImport = new Function("specifier", "return import(specifier)");
@@ -30,8 +31,100 @@ export class AuthController {
       return res.status(200).json({ exists: !!user });
     } catch (error: any) {
       console.error("❌ [CheckEmail] Failed:", error);
-      return res.status(500).json({ error: "Failed to check email", details: error.message });
+      return res.status(500).json({ error: "Failed to check email", details: error.message, stack: error.stack });
     }
+  }
+
+  @Get("debug-connectivity")
+  async debugConnectivity(@Res() res: Response) {
+    const report: any = {
+      timestamp: new Date().toISOString(),
+      env: {
+        smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com (default)',
+        smtpPort: process.env.SMTP_PORT || '587 (default)',
+        proxyHost: process.env.PROXY_HOST || '(not set)',
+        proxyPort: process.env.PROXY_PORT || '(not set)',
+        nodeEnv: process.env.NODE_ENV
+      },
+      tests: {}
+    };
+
+    // Test 1: DNS Resolution
+    try {
+      const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+      console.log(`🔍 [Debug] Resolving DNS for ${host}...`);
+      const addresses = await new Promise((resolve, reject) => {
+        dns.resolve(host, (err, addresses) => {
+          if (err) reject(err);
+          else resolve(addresses);
+        });
+      });
+      report.tests.dns = { status: 'ok', host, addresses };
+    } catch (e: any) {
+      report.tests.dns = { status: 'failed', error: e.message };
+    }
+
+    // Test 2: TCP Connection to SMTP
+    try {
+      const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+      const port = Number(process.env.SMTP_PORT) || 587;
+      console.log(`🔍 [Debug] Testing TCP connection to ${host}:${port}...`);
+      
+      await new Promise((resolve, reject) => {
+        const socket = new net.Socket();
+        socket.setTimeout(5000); // 5s timeout
+        socket.on('connect', () => {
+          socket.destroy();
+          resolve(true);
+        });
+        socket.on('timeout', () => {
+          socket.destroy();
+          reject(new Error('Connection timed out'));
+        });
+        socket.on('error', (err) => {
+          socket.destroy();
+          reject(err);
+        });
+        socket.connect({ port, host });
+      });
+      report.tests.smtpTcp = { status: 'ok', message: 'Connected successfully' };
+    } catch (e: any) {
+      report.tests.smtpTcp = { status: 'failed', error: e.message };
+    }
+
+    // Test 3: Proxy Connection (if configured)
+    if (process.env.PROXY_HOST && process.env.PROXY_PORT) {
+      try {
+        const host = process.env.PROXY_HOST;
+        const port = Number(process.env.PROXY_PORT);
+        console.log(`🔍 [Debug] Testing Proxy connection to ${host}:${port}...`);
+
+        await new Promise((resolve, reject) => {
+          const socket = new net.Socket();
+          socket.setTimeout(2000);
+          socket.on('connect', () => {
+            socket.destroy();
+            resolve(true);
+          });
+          socket.on('timeout', () => {
+            socket.destroy();
+            reject(new Error('Proxy timed out'));
+          });
+          socket.on('error', (err) => {
+            socket.destroy();
+            reject(err);
+          });
+          socket.connect({ port, host });
+        });
+        report.tests.proxyTcp = { status: 'ok', message: 'Proxy reachable' };
+      } catch (e: any) {
+        report.tests.proxyTcp = { status: 'failed', error: e.message };
+      }
+    } else {
+      report.tests.proxyTcp = { status: 'skipped', message: 'No proxy configured' };
+    }
+
+    return res.json(report);
   }
 
   @Post("send-otp")
@@ -179,7 +272,11 @@ export class AuthController {
 
     } catch (error: any) {
       console.error("❌ [SendOTP] Failed:", error);
-      return res.status(500).json({ error: "Failed to send verification code", details: error.message });
+      return res.status(500).json({ 
+        error: "Failed to send verification code", 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+      });
     }
   }
 
