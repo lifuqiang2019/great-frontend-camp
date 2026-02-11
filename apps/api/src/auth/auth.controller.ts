@@ -13,6 +13,26 @@ const prisma = new PrismaClient();
 @Controller("api/auth")
 export class AuthController {
   
+  @Post("check-email")
+  async checkEmail(@Body() body: { email: string }, @Res() res: Response) {
+    const { email } = body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true }
+      });
+
+      return res.status(200).json({ exists: !!user });
+    } catch (error: any) {
+      console.error("❌ [CheckEmail] Failed:", error);
+      return res.status(500).json({ error: "Failed to check email", details: error.message });
+    }
+  }
+
   @Post("send-otp")
   async sendOtp(@Body() body: { email: string }, @Res() res: Response) {
     const { email } = body;

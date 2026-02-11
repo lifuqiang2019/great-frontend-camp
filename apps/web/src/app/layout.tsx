@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import BaiduAnalytics from "@/components/BaiduAnalytics";
+import { Toaster } from 'sonner';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +31,7 @@ export default function RootLayout({
       >
         <BaiduAnalytics />
         {children}
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   );
