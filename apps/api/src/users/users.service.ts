@@ -16,7 +16,7 @@ export class UsersService {
     });
   }
 
-  async update(id: string, data: { name?: string; image?: string }) {
+  async update(id: string, data: { name?: string; image?: string; role?: string }) {
     return this.prisma.user.update({
       where: { id },
       data,

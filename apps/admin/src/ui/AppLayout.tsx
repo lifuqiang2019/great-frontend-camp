@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
-import { Layout, Menu, theme, Typography, Avatar, Dropdown, Space, Breadcrumb } from "antd";
+import React, { useMemo, useState, useEffect } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Layout, Menu, theme, Typography, Avatar, Dropdown, Space, Breadcrumb, Modal, message, Descriptions } from "antd";
+import http from "../lib/request";
 import { 
   DashboardOutlined, 
   TeamOutlined, 
@@ -15,14 +16,43 @@ const { Header, Sider, Content } = Layout;
 
 export function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [user, setUser] = useState<any>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  
   const {
     token: { colorBgContainer, borderRadiusLG, colorPrimary },
   } = theme.useToken();
 
+  useEffect(() => {
+    http.get('/api/auth/get-session').then(res => {
+      if (res?.user) {
+        setUser(res.user);
+      }
+    }).catch(console.error);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await http.post('/api/auth/sign-out');
+      message.success('已退出登录');
+      navigate('/login');
+    } catch (error) {
+      message.error('退出失败');
+    }
+  };
+
+  const onMenuClick = (e: any) => {
+    if (e.key === 'logout') {
+      handleLogout();
+    } else if (e.key === 'profile') {
+      setProfileOpen(true);
+    }
+  };
+
   const selectedKeys = useMemo(() => {
     if (location.pathname === "/questions" || location.pathname.startsWith("/questions/edit") || location.pathname === "/questions/create") return ["questions-list"];
     if (location.pathname === "/questions/categories") return ["questions-categories"];
-    if (location.pathname === "/questions/hot-config") return ["questions-hot-config"];
     if (location.pathname.startsWith("/users")) return ["users"];
     return ["dashboard"];
   }, [location.pathname]);
@@ -39,7 +69,6 @@ export function AppLayout() {
     if (location.pathname.startsWith("/questions")) {
       items.push({ title: '题库管理' });
       if (location.pathname === "/questions/categories") items.push({ title: '分类管理' });
-      else if (location.pathname === "/questions/hot-config") items.push({ title: '热门配置' });
       else if (location.pathname === "/questions/create") items.push({ title: '录入题目' });
       else if (location.pathname.startsWith("/questions/edit")) items.push({ title: '编辑题目' });
       else items.push({ title: '题目列表' });
@@ -109,7 +138,6 @@ export function AppLayout() {
                       children: [
                         { key: "questions-list", label: <Link to="/questions">题目列表</Link> },
                         { key: "questions-categories", label: <Link to="/questions/categories">分类管理</Link> },
-                        { key: "questions-hot-config", label: <Link to="/questions/hot-config">热门配置</Link> },
                       ]
                     },
                     {
@@ -143,11 +171,13 @@ export function AppLayout() {
                   { key: 'profile', icon: <UserOutlined />, label: '个人中心' },
                   { type: 'divider' },
                   { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
-                ] 
+                ],
+                onClick: onMenuClick
               }}
             >
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar 
+                  src={user?.image}
                   style={{ 
                     backgroundColor: '#1677FF', // 回归纯净的科技蓝
                     verticalAlign: 'middle',
@@ -155,7 +185,7 @@ export function AppLayout() {
                   }} 
                   icon={<UserOutlined />} 
                 />
-                <Typography.Text strong>Admin User</Typography.Text>
+                <Typography.Text strong>{user?.name || 'Admin User'}</Typography.Text>
               </Space>
             </Dropdown>
           </Space>
@@ -167,6 +197,20 @@ export function AppLayout() {
           GreatFedCamp ©{new Date().getFullYear()} Created by Trae AI
         </Layout.Footer>
       </Layout>
+      
+      <Modal
+        title="个人中心"
+        open={profileOpen}
+        onCancel={() => setProfileOpen(false)}
+        footer={null}
+      >
+        <Descriptions column={1} bordered>
+          <Descriptions.Item label="用户名">{user?.name}</Descriptions.Item>
+          <Descriptions.Item label="邮箱">{user?.email}</Descriptions.Item>
+          <Descriptions.Item label="角色">{user?.role || '管理员'}</Descriptions.Item>
+          <Descriptions.Item label="ID">{user?.id}</Descriptions.Item>
+        </Descriptions>
+      </Modal>
     </Layout>
   );
 }

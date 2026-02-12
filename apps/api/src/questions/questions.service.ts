@@ -28,6 +28,13 @@ export class QuestionsService {
     });
   }
 
+  async updateCategory(id: string, name: string) {
+    return this.prisma.questionCategory.update({
+      where: { id },
+      data: { name },
+    });
+  }
+
   async findAllCategories() {
     try {
       const categories = await this.prisma.questionCategory.findMany();

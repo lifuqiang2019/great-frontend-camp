@@ -15,9 +15,17 @@ interface MainPageProps {
   initialTab?: string;
   initialQuestionId?: string;
   serverGreetingConfig?: Record<string, string>;
+  initialQuestions?: QuestionItem[];
+  initialCategories?: Category[];
 }
 
-export default function MainPage({ initialTab = '面试题库', initialQuestionId, serverGreetingConfig }: MainPageProps) {
+export default function MainPage({ 
+  initialTab = '面试题库', 
+  initialQuestionId, 
+  serverGreetingConfig,
+  initialQuestions,
+  initialCategories
+}: MainPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set([initialTab]));
@@ -38,27 +46,36 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
   const { data: session } = useSession();
   
   // Data for search and CodingCommunity
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [questions, setQuestions] = useState<QuestionItem[] | undefined>(initialQuestions);
+  const [categories, setCategories] = useState<Category[] | undefined>(initialCategories);
 
   useEffect(() => {
+    if (initialQuestions && initialCategories) return;
+
     const fetchData = async () => {
       try {
-        const [questionsData, categoriesData] = await Promise.all([
-          api.get<QuestionItem[]>('/questions'),
-          api.get<Category[]>('/questions/categories')
+        const [questionsRes, categoriesRes] = await Promise.all([
+          api.get<any>('/questions'),
+          api.get<any>('/questions/categories')
         ]);
+        
+        const questionsData = Array.isArray(questionsRes) ? questionsRes : (questionsRes?.data || []);
+        const categoriesData = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
+        
         setQuestions(questionsData);
         setCategories(categoriesData);
       } catch (error) {
         console.error('Failed to fetch data:', error);
+        // If fetch fails, set to empty array to stop loading state
+        setQuestions([]);
+        setCategories([]);
       }
     };
     fetchData();
-  }, []);
+  }, [initialQuestions, initialCategories]);
 
   const filteredSearchResults = useMemo(() => {
-    if (!searchQuery) return [];
+    if (!searchQuery || !questions) return [];
     return questions.filter(q => q.title.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [questions, searchQuery]);
 
@@ -190,9 +207,18 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
     
     const fetchConfig = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/system/config`);
-        if (res.ok) {
-          const data = await res.json();
+        const greetingKeys = [
+          'greeting_0_7', 'greeting_7_9', 'greeting_9_12', 
+          'greeting_12_14', 'greeting_14_18', 'greeting_18_24'
+        ];
+        
+        // Use batch fetch to avoid 401 on full config list
+        const res = await api.post('/system/config/batch', { keys: greetingKeys });
+        
+        // Handle wrapped response { code, message, data }
+        const data = res?.data || res;
+        
+        if (Array.isArray(data)) {
           const configMap = data.reduce((acc: any, item: any) => {
             acc[item.key] = item.value;
             return acc;
@@ -358,96 +384,96 @@ export default function MainPage({ initialTab = '面试题库', initialQuestionI
             ))}
           </ul>
 
-          {/* Search Box */}
-          <div className={`flex-1 max-w-md mx-auto px-4 hidden md:block transition-all duration-300 ${showNavSearch ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
-            <div className="relative group" ref={searchContainerRef}>
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                <svg 
-                  className={`h-5 w-5 text-primary-400 group-focus-within:text-accent-gold transition-all duration-300 ${isSearchIconAnimating ? 'scale-125 text-accent-gold' : ''}`} 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                type="text"
-                className="block w-full pl-10 pr-10 py-2 border border-primary-700 rounded-xl leading-5 bg-primary-800/50 text-white font-medium tracking-wide placeholder-primary-300 focus:outline-none focus:bg-primary-800 focus:ring-2 focus:ring-accent-gold/30 focus:border-accent-gold/50 sm:text-sm transition-all duration-300 shadow-inner hover:bg-primary-800/80 hover:border-primary-600 backdrop-blur-sm"
-                placeholder={searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsSearchFocused(true);
-                }}
-                onFocus={() => setIsSearchFocused(true)}
-              />
-              {searchQuery && isSearchFocused && (
-                <>
-                  <div 
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setIsSearchFocused(true);
-                    }}
+          {/* Search Box - Absolute Centered */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className={`w-full max-w-md pointer-events-auto px-4 hidden md:block transition-all duration-300 ${showNavSearch ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+              <div className="relative group" ref={searchContainerRef}>
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                  <svg 
+                    className={`h-5 w-5 text-primary-400 group-focus-within:text-accent-gold transition-all duration-300 ${isSearchIconAnimating ? 'scale-125 text-accent-gold' : ''}`} 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary-500 hover:text-accent-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  
-                  {/* Search Dropdown Results */}
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-white rounded-xl shadow-xl border border-primary-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 py-1">
-                    <div className="max-h-96 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-primary-300">
-                     {filteredSearchResults.length > 0 ? (
-                        <ul className="">
-                          {filteredSearchResults.map(q => (
-                             <li 
-                               key={q.id}
-                               className="px-4 py-3 hover:bg-primary-50 cursor-pointer border-b border-primary-50 last:border-none transition-colors group/item"
-                               onClick={() => {
-                                 setSearchQuery('');
-                                 setIsSearchFocused(false);
-                                 setCurrentQuestionId(q.id);
-                                 handleTabChange('面试题库', `/questions/${q.id}`);
-                               }}
-                             >
-                               <div className="flex items-center justify-between">
-                                 <div className="text-sm font-medium text-primary-900 truncate group-hover/item:text-accent-copper transition-colors">{q.title}</div>
-                                 <span className="text-[10px] text-primary-400 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100 whitespace-nowrap ml-2">
-                                   {categories.find(c => c.id === q.categoryId)?.name || '未分类'}
-                                 </span>
-                               </div>
-                             </li>
-                          ))}
-                        </ul>
-                     ) : (
-                        <div className="p-8 text-center flex flex-col items-center justify-center text-primary-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                          <span className="text-sm">未找到相关内容</span>
-                        </div>
-                     )}
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-10 py-2 border border-primary-700 rounded-xl leading-5 bg-primary-800/50 text-white font-medium tracking-wide placeholder-primary-300 focus:outline-none focus:bg-primary-800 focus:ring-2 focus:ring-accent-gold/30 focus:border-accent-gold/50 sm:text-sm transition-all duration-300 shadow-inner hover:bg-primary-800/80 hover:border-primary-600 backdrop-blur-sm"
+                  placeholder={searchPlaceholder}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchFocused(true);
+                  }}
+                  onFocus={() => setIsSearchFocused(true)}
+                />
+                {searchQuery && isSearchFocused && (
+                  <>
+                    <div 
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setIsSearchFocused(true);
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary-500 hover:text-accent-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </div>
-                  </div>
-                </>
-              )}
+                    
+                    {/* Search Dropdown Results */}
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-white rounded-xl shadow-xl border border-primary-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 py-1">
+                      <div className="max-h-96 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-primary-300">
+                       {filteredSearchResults.length > 0 ? (
+                          <ul className="">
+                            {filteredSearchResults.map(q => (
+                               <li 
+                                 key={q.id}
+                                 className="px-4 py-3 hover:bg-primary-50 cursor-pointer border-b border-primary-50 last:border-none transition-colors group/item"
+                                 onClick={() => {
+                                   setSearchQuery('');
+                                   setIsSearchFocused(false);
+                                   setCurrentQuestionId(q.id);
+                                   handleTabChange('面试题库', `/questions/${q.id}`);
+                                 }}
+                               >
+                                 <div className="flex items-center justify-between">
+                                   <div className="text-sm font-medium text-primary-900 truncate group-hover/item:text-accent-copper transition-colors">{q.title}</div>
+                                   <span className="text-[10px] text-primary-400 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100 whitespace-nowrap ml-2">
+                                     {categories?.find(c => c.id === q.categoryId)?.name || '未分类'}
+                                   </span>
+                                 </div>
+                               </li>
+                            ))}
+                          </ul>
+                       ) : (
+                          <div className="p-8 text-center flex flex-col items-center justify-center text-primary-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <span className="text-sm">未找到相关内容</span>
+                          </div>
+                       )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           
-          {/* Time Widget */}
-          {currentTime && (
-             <div className="mr-6 hidden md:flex items-center justify-center h-full animate-fade-in select-none">
-                <div className="flex items-center gap-2 text-[14px] text-primary-100 font-bold leading-none tracking-wide">
-                  <span>{getGreeting(currentTime).text}</span>
-                </div>
-             </div>
-          )}
+          {/* Time Widget - Always render container to prevent layout shift */}
+          <div className="flex-1 flex justify-end mr-4 hidden md:flex items-center h-full select-none">
+            <div className={`flex items-center gap-2 text-[14px] text-primary-100 font-bold leading-none tracking-wide transition-opacity duration-500 ${currentTime ? 'opacity-100' : 'opacity-0'}`}>
+              <span>{currentTime ? getGreeting(currentTime).text : 'Loading...'}</span>
+            </div>
+          </div>
 
-          <div className="flex items-center min-w-[100px] justify-end relative" ref={userMenuRef}>
+          <div className="flex items-center justify-end relative" ref={userMenuRef}>
             <div 
               className="flex items-center gap-3 cursor-pointer group"
               onClick={handleAvatarClick}

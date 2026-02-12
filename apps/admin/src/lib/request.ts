@@ -4,6 +4,7 @@ import { message } from 'antd';
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3002',
   timeout: 10000,
+  withCredentials: true,
 });
 
 request.interceptors.request.use(
@@ -18,7 +19,18 @@ request.interceptors.request.use(
 
 request.interceptors.response.use(
   (response) => {
-    return response.data;
+    // 自动解包后端返回的 { code, message, data } 格式
+    const res = response.data;
+    if (res && typeof res === 'object' && 'code' in res && 'data' in res) {
+       // 如果 code 不为 200，视为业务错误（可选，根据需要调整）
+       if (res.code !== 200) {
+          message.error(res.message || '请求失败');
+          return Promise.reject(new Error(res.message || 'Error'));
+       }
+       return res.data;
+    }
+    // 兼容旧格式或直接返回的数据
+    return res;
   },
   (error) => {
     const msg = error.response?.data?.message || error.message || '请求失败';

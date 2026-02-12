@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 
 // Try to set global proxy for Node.js fetch (used by better-auth)
 try {
@@ -44,6 +45,9 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  // Global Response Interceptor
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   const port = Number(process.env.PORT ?? 3002);
   await app.listen(port);

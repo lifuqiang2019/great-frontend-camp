@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Card, Modal, message, Popconfirm, Space } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { Table, Button, Form, Input, Card, Modal, message, Popconfirm, Space, Tooltip, Tag } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, FolderOutlined } from '@ant-design/icons';
 import http from '../../lib/request';
 
 interface Category {
@@ -35,23 +35,8 @@ export const CategoriesPage: React.FC = () => {
   const handleSubmit = async (values: { name: string }) => {
     try {
       if (editingCategory) {
-        // TODO: Backend needs to support update category if not exists
-        // Currently we only have create, let's assume update API might be needed or just re-create logic
-        // For now, let's assume we can only create or the backend might have an update endpoint I missed?
-        // Checking the previous tool outputs, I only added createCategory in QuestionsService.
-        // I should probably add updateCategory to the backend if needed, but for now let's stick to basic CRUD.
-        // Wait, the user asked for CRUD. I should ensure backend has update.
-        // Let's check backend service again or just implement create for now and add update later if needed.
-        // Actually, for categories, usually name is the only field.
-        // Let's assume create for now. If editing is needed, I might need to add PATCH endpoint.
-        // Let's just do create and delete for now as per previous implementation, 
-        // but since I'm here, I'll add a mock update or just handle create.
-        // Actually, let's just handle Create and Delete for categories as per initial backend code.
-        // If I need update, I should add it to backend. 
-        // Let's stick to Create/Delete for simplicity unless user complains, or I can add it quickly.
-        // But wait, "CRUD" implies Update.
-        // Let's just implement Create and Delete first.
-        message.warning('暂不支持修改分类，请删除后重新创建');
+        await http.patch(`/questions/categories/${editingCategory.id}`, values);
+        message.success('更新成功');
       } else {
         await http.post('/questions/categories', values);
         message.success('创建成功');
@@ -62,24 +47,18 @@ export const CategoriesPage: React.FC = () => {
       fetchCategories();
     } catch (error) {
       console.error(error);
+      message.error(editingCategory ? '更新失败' : '创建失败');
     }
+  };
+
+  const handleEdit = (record: Category) => {
+    setEditingCategory(record);
+    form.setFieldsValue({ name: record.name });
+    setModalVisible(true);
   };
 
   const handleDelete = async (id: string) => {
     try {
-      // Backend needs delete endpoint for categories? 
-      // I checked QuestionsController, it has createCategory, findAllCategories.
-      // It does NOT have deleteCategory. 
-      // I should add deleteCategory to backend first?
-      // Or just leave it for now?
-      // The user said "backend system corresponding question category management... do CRUD".
-      // So I really should support Delete.
-      // Let's assume I will add it.
-      // For now I will write the frontend code and then fix backend if needed or just let it fail.
-      // Wait, I am an autonomous agent. I should fix the backend too.
-      // I will add a backend task to my todo list if I find it missing.
-      // Let's write the frontend code assuming the endpoint exists or I will add it.
-      // Endpoint: DELETE /questions/categories/:id
       await http.delete(`/questions/categories/${id}`);
       message.success('删除成功');
       fetchCategories();
@@ -94,30 +73,52 @@ export const CategoriesPage: React.FC = () => {
       title: '分类名称',
       dataIndex: 'name',
       key: 'name',
+      render: (text: string) => (
+        <Space>
+          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+             <FolderOutlined />
+          </div>
+          <span className="font-medium text-gray-700">{text}</span>
+        </Space>
+      ),
     },
     {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 240,
+      width: 150,
+      render: (id: string) => (
+        <Tooltip title={id}>
+          <Tag color="default" className="font-mono text-gray-400">
+            {id.substring(0, 6)}...
+          </Tag>
+        </Tooltip>
+      ),
     },
     {
       title: '操作',
       key: 'action',
-      width: 150,
+      width: 200,
       render: (_: any, record: Category) => (
-        <Space size="middle">
-          {/* <Button 
-            type="text" 
+        <Space>
+          <Button 
+            type="link" 
+            size="small"
             icon={<EditOutlined />} 
-            onClick={() => {
-              setEditingCategory(record);
-              form.setFieldsValue(record);
-              setModalVisible(true);
-            }}
-          /> */}
-          <Popconfirm title="确定删除吗?" onConfirm={() => handleDelete(record.id)}>
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            onClick={() => handleEdit(record)}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定要删除吗？"
+            description="删除后无法恢复，且该分类下的题目将无法访问"
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="link" danger size="small" icon={<DeleteOutlined />}>
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -125,49 +126,62 @@ export const CategoriesPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="p-6">
       <Card
-        title="分类管理"
+        bordered={false}
+        className="shadow-sm rounded-xl"
+        title={<span className="text-lg font-bold">分类管理</span>}
         extra={
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
             onClick={() => {
               setEditingCategory(null);
               form.resetFields();
               setModalVisible(true);
             }}
+            className="bg-blue-600 hover:bg-blue-500"
           >
-            新建分类
+            新增分类
           </Button>
         }
       >
-        <Table 
-          columns={columns} 
-          dataSource={categories} 
-          rowKey="id" 
-          loading={loading} 
+        <Table
+          columns={columns}
+          dataSource={categories}
+          rowKey="id"
+          loading={loading}
           pagination={false}
+          className="ant-table-striped"
         />
       </Card>
 
       <Modal
-        title={editingCategory ? "编辑分类" : "新建分类"}
+        title={editingCategory ? "编辑分类" : "新增分类"}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
           setEditingCategory(null);
           form.resetFields();
         }}
-        onOk={() => form.submit()}
+        footer={null}
+        destroyOnClose
       >
-        <Form form={form} onFinish={handleSubmit} layout="vertical">
-          <Form.Item 
-            name="name" 
-            label="分类名称" 
+        <Form form={form} onFinish={handleSubmit} layout="vertical" className="pt-4">
+          <Form.Item
+            name="name"
+            label="分类名称"
             rules={[{ required: true, message: '请输入分类名称' }]}
           >
-            <Input placeholder="请输入分类名称" />
+            <Input placeholder="例如：React" size="large" />
+          </Form.Item>
+          <Form.Item className="mb-0 flex justify-end">
+            <Space>
+              <Button onClick={() => setModalVisible(false)}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                {editingCategory ? '更新' : '创建'}
+              </Button>
+            </Space>
           </Form.Item>
         </Form>
       </Modal>

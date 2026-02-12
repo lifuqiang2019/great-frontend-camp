@@ -88,15 +88,23 @@ export async function getAuth() {
         maxAge: 5 * 60, // 5 minutes
       },
     },
+    user: {
+      additionalFields: {
+        role: {
+          type: "string",
+          defaultValue: "user",
+        },
+      },
+    },
     databaseHooks: {
       user: {
         create: {
           before: async (user: any) => {
-             console.log("📝 [DB Hook] Creating user, setting emailVerified=true");
-             return {
-                 ...user,
-                 emailVerified: true
-             }
+            console.log("📝 [DB Hook] Creating user, setting emailVerified=true");
+            return {
+              ...user,
+              emailVerified: true
+            }
           },
           after: async (user: any) => {
             console.log(`✅ [DB Hook] User created: ${user.email}, ensuring emailVerified=true`);

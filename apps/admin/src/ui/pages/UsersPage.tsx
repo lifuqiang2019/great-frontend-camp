@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Button, Space, Table, Typography, message, Popconfirm } from "antd";
+import { Button, Space, Table, Typography, message, Popconfirm, Tag, Modal, Form, Select, Input } from "antd";
 import http from "../../lib/request";
 
 type UserRow = {
   id: string;
   email: string;
   name?: string;
+  role?: string;
   createdAt: string;
   emailVerified: boolean;
   accounts?: { providerId: string }[];
@@ -14,6 +15,9 @@ type UserRow = {
 export function UsersPage() {
   const [dataSource, setDataSource] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchUsers();
@@ -43,11 +47,34 @@ export function UsersPage() {
     }
   };
 
+  const handleEdit = (user: UserRow) => {
+    setEditingUser(user);
+    form.setFieldsValue({
+      name: user.name,
+      role: user.role || 'user'
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    try {
+      const values = await form.validateFields();
+      await http.patch(`/users/${editingUser?.id}`, values);
+      message.success("更新成功");
+      setIsModalOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      message.error("更新失败");
+    }
+  };
+
   return (
     <div>
       <Space style={{ width: "100%", justifyContent: "space-between" }}>
         <Typography.Title level={3} style={{ marginTop: 0 }}>
-          用户
+          用户管理
         </Typography.Title>
         <Button type="primary">新增用户</Button>
       </Space>
@@ -59,6 +86,14 @@ export function UsersPage() {
         columns={[
           { title: "ID", dataIndex: "id", width: 100, ellipsis: true },
           { title: "用户名", dataIndex: "name" },
+          { 
+            title: "角色", 
+            dataIndex: "role",
+            render: (role: string) => {
+                const color = role === 'admin' ? 'red' : 'blue';
+                return <Tag color={color}>{role === 'admin' ? '管理员' : '普通用户'}</Tag>;
+            }
+          },
           { 
             title: "注册渠道",
             dataIndex: "accounts",
@@ -91,22 +126,41 @@ export function UsersPage() {
             title: "操作",
             key: "action",
             render: (_, record) => (
-              <Popconfirm
-                title="确定要删除该用户吗？"
-                description="删除后无法恢复"
-                onConfirm={() => handleDelete(record.id)}
-                okText="确定"
-                cancelText="取消"
-              >
-                <Button type="link" danger>
-                  删除
-                </Button>
-              </Popconfirm>
+              <Space>
+                <Button type="link" onClick={() => handleEdit(record)}>编辑</Button>
+                <Popconfirm
+                  title="确定要删除该用户吗？"
+                  description="删除后无法恢复"
+                  onConfirm={() => handleDelete(record.id)}
+                  okText="确定"
+                  cancelText="取消"
+                >
+                  <Button type="link" danger>删除</Button>
+                </Popconfirm>
+              </Space>
             ),
           },
         ]}
       />
+
+      <Modal
+        title="编辑用户"
+        open={isModalOpen}
+        onOk={handleUpdate}
+        onCancel={() => setIsModalOpen(false)}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="用户名">
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label="角色" rules={[{ required: true }]}>
+            <Select>
+              <Select.Option value="user">普通用户</Select.Option>
+              <Select.Option value="admin">管理员</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
-

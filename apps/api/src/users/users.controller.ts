@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Post, Delete, Param, Patch } from "@nestjs/common";
+import { Body, Controller, Get, Post, Delete, Param, Patch, UseGuards } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UsersService } from "./users.service";
+import { AdminGuard } from '../common/guards/admin.guard';
 
 @Controller("users")
+@UseGuards(AdminGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -22,7 +24,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: { name?: string; image?: string }) {
+  update(@Param('id') id: string, @Body() body: { name?: string; image?: string; role?: string }) {
     return this.usersService.update(id, body);
   }
 

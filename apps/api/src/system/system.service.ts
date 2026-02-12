@@ -16,6 +16,14 @@ export class SystemService {
     return this.prisma.systemConfig.findMany();
   }
 
+  async getConfigs(keys: string[]) {
+    return this.prisma.systemConfig.findMany({
+      where: {
+        key: { in: keys },
+      },
+    });
+  }
+
   async setConfig(key: string, value: string) {
     return this.prisma.systemConfig.upsert({
       where: { key },

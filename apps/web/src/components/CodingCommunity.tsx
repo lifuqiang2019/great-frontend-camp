@@ -244,8 +244,13 @@ export default function CodingCommunity({
           api.get('/system/config/hot_questions_limit'),
           api.get('/system/config/hot_questions_expanded_limit')
         ]);
-        if (limitRes) setHotLimit(Number(limitRes));
-        if (expandedLimitRes) setHotExpandedLimit(Number(expandedLimitRes));
+        
+        // Handle wrapped response { code, message, data } or direct data
+        const limitVal = limitRes?.data !== undefined ? limitRes.data : limitRes;
+        const expandedLimitVal = expandedLimitRes?.data !== undefined ? expandedLimitRes.data : expandedLimitRes;
+
+        if (limitVal) setHotLimit(Number(limitVal));
+        if (expandedLimitVal) setHotExpandedLimit(Number(expandedLimitVal));
       } catch (e) {
         console.error("Failed to fetch config", e);
       }
@@ -296,18 +301,28 @@ export default function CodingCommunity({
 
   // Track mount time to ensure minimum loading display if needed
   const mountTimeRef = useRef(Date.now());
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!isLoading) {
-      // Data loaded, wait for fade out animation before removing skeleton from DOM
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && mounted) {
+      // Data loaded and component mounted
+      // If we have props (SSR/Server Component), we can hide skeleton immediately or with a short fade
+      // If we fetched client-side, we might want the delay.
+      // But the user suggestion "mounted 状态之后就可以取消骨架屏了" implies we should rely on mount.
+      
       const timer = setTimeout(() => {
         setShowSkeleton(false);
-      }, 500); // Match CSS duration
+      }, propQuestions && propCategories ? 0 : 500); 
+      
       return () => clearTimeout(timer);
     } else {
       setShowSkeleton(true);
     }
-  }, [isLoading]);
+  }, [isLoading, mounted, propQuestions, propCategories]);
 
   const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -406,8 +421,12 @@ export default function CodingCommunity({
   // Fetch favorites list
   useEffect(() => {
     if (session?.user) {
-      api.get<any[]>('/favorites').then(res => {
-        setFavoriteIds(new Set(res.map((item: any) => item.questionId)));
+      api.get<any>('/favorites').then(res => {
+        // Handle wrapped response { code, message, data } or direct data
+        const data = Array.isArray(res) ? res : (res?.data || []);
+        if (Array.isArray(data)) {
+          setFavoriteIds(new Set(data.map((item: any) => item.questionId)));
+        }
       }).catch(console.error);
     } else {
       setFavoriteIds(new Set());
@@ -635,14 +654,21 @@ export default function CodingCommunity({
       // Reset start time for client-side fetch
       const fetchStartTime = Date.now();
       try {
-        const [questionsData, categoriesData] = await Promise.all([
-          api.get<QuestionItem[]>('/questions'),
-          api.get<Category[]>('/questions/categories')
+        const [questionsRes, categoriesRes] = await Promise.all([
+          api.get<any>('/questions'),
+          api.get<any>('/questions/categories')
         ]);
+        
+        // Handle wrapped response { code, message, data } or direct data
+        const questionsData = Array.isArray(questionsRes) ? questionsRes : (questionsRes?.data || []);
+        const categoriesData = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
+        
         setInternalQuestions(questionsData);
         setInternalCategories(categoriesData);
         // Expand all categories by default, including 'hot'
-        setExpandedCategoryIds(['hot', ...categoriesData.map(c => c.id)]);
+        if (Array.isArray(categoriesData)) {
+          setExpandedCategoryIds(['hot', ...categoriesData.map((c: any) => c.id)]);
+        }
       } catch (error) {
         console.error('Failed to fetch data:', error);
       } finally {
@@ -683,20 +709,26 @@ export default function CodingCommunity({
     const groups: Record<string, QuestionItem[]> = {};
     
     // Initialize groups for all categories
-    categories.forEach(cat => {
-      groups[cat.id] = [];
-    });
+    // Defensive check: ensure categories is an array
+    if (Array.isArray(categories)) {
+      categories.forEach(cat => {
+        groups[cat.id] = [];
+      });
+    }
 
     // Distribute questions
-    questions.forEach(q => {
-      if (groups[q.categoryId]) {
-        groups[q.categoryId].push(q);
-      } else {
-        // Handle uncategorized or unknown category
-        if (!groups['uncategorized']) groups['uncategorized'] = [];
-        groups['uncategorized'].push(q);
-      }
-    });
+    // Defensive check: ensure questions is an array
+    if (Array.isArray(questions)) {
+      questions.forEach(q => {
+        if (groups[q.categoryId]) {
+          groups[q.categoryId].push(q);
+        } else {
+          // Handle uncategorized or unknown category
+          if (!groups['uncategorized']) groups['uncategorized'] = [];
+          groups['uncategorized'].push(q);
+        }
+      });
+    }
 
     return groups;
   }, [questions, categories]);
@@ -785,6 +817,30 @@ export default function CodingCommunity({
   const favoriteQuestions = useMemo(() => {
     return questions.filter(q => favoriteIds.has(q.id));
   }, [questions, favoriteIds]);
+
+  // Flatten visible questions for navigation (Next/Prev)
+  const visibleQuestions = useMemo(() => {
+    if (viewMode === 'favorites-only') {
+      return filteredQuestions;
+    } else {
+      // Tree View: Flatten by iterating categories in order
+      const flatList: QuestionItem[] = [];
+      categories.forEach(category => {
+        const categoryQuestions = groupedQuestions[category.id] || [];
+        flatList.push(...categoryQuestions);
+      });
+      return flatList;
+    }
+  }, [viewMode, filteredQuestions, categories, groupedQuestions]);
+
+  const { prevQuestion, nextQuestion } = useMemo(() => {
+    if (!selectedQuestion) return { prevQuestion: null, nextQuestion: null };
+    const index = visibleQuestions.findIndex(q => q.id === selectedQuestion.id);
+    return {
+      prevQuestion: index > 0 ? visibleQuestions[index - 1] : null,
+      nextQuestion: index !== -1 && index < visibleQuestions.length - 1 ? visibleQuestions[index + 1] : null
+    };
+  }, [selectedQuestion, visibleQuestions]);
 
   const selectQuestion = useCallback(async (item: QuestionItem, updateUrl = true) => {
     setSelectedQuestion(item);
@@ -886,7 +942,7 @@ export default function CodingCommunity({
   `;
 
   return (
-    <div className="flex h-full bg-primary-50 p-5 gap-5 box-border relative">
+    <div className="flex h-full bg-primary-50 p-5 gap-3 box-border relative">
       
       {/* Toast Notification */}
       {toast && (
@@ -917,13 +973,23 @@ export default function CodingCommunity({
         {/* Resizer Handle */}
         <div
           onMouseDown={startResizing}
-          className={`absolute -right-[15px] top-0 bottom-0 w-[10px] cursor-col-resize z-50 flex justify-center items-center hover:bg-primary-200/30 transition-colors rounded-full my-2 ${isResizing ? 'bg-primary-200/50' : ''}`}
+          className={`absolute -right-[8px] top-0 bottom-0 w-[16px] cursor-col-resize z-50 flex justify-center items-center group outline-none touch-none select-none`}
           title="拖动调整宽度"
         >
-          <div className="w-[2px] h-8 bg-primary-300 rounded-full" />
+          {/* Visual Background Block - Narrower */}
+          <div className={`w-[6px] h-[calc(100%-16px)] rounded-full transition-colors duration-200 flex items-center justify-center
+            group-hover:bg-primary-200/50 
+            ${isResizing ? 'bg-primary-200/80' : 'bg-transparent'}
+          `}>
+             {/* Central Line */}
+             <div className={`w-[1.5px] h-8 bg-primary-300/80 rounded-full transition-all duration-200
+                group-hover:w-[2px] group-hover:h-12 group-hover:bg-primary-400
+                ${isResizing ? '!w-[2px] !h-16 !bg-primary-500 shadow-sm' : ''}
+             `} />
+          </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto pl-[10px] pr-0.5 pb-[10px] m-0 pt-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+        <div className="flex-1 overflow-y-auto pl-[10px] pr-0.5 pb-[10px] pt-3 mr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-primary-200 [&::-webkit-scrollbar-thumb]:rounded-full">
           {isLoading ? (
             <div className="px-3 pb-2 pt-2 animate-pulse select-none">
               {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -1131,16 +1197,32 @@ export default function CodingCommunity({
                   
                   {/* Bottom Navigation */}
                   <div className="mt-12 pt-8 border-t border-primary-100 flex justify-between items-center text-sm">
-                    <button className="group flex items-center gap-2 px-4 py-2 rounded-lg text-primary-500 hover:text-primary-900 hover:bg-primary-50 transition-all cursor-not-allowed opacity-50" disabled>
-                      <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button 
+                      onClick={() => prevQuestion && selectQuestion(prevQuestion)}
+                      disabled={!prevQuestion}
+                      className={`group flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                        prevQuestion 
+                          ? 'text-primary-600 hover:text-primary-900 hover:bg-primary-50 cursor-pointer' 
+                          : 'text-primary-300 cursor-not-allowed opacity-50'
+                      }`}
+                    >
+                      <svg className={`w-4 h-4 transition-transform ${prevQuestion ? 'group-hover:-translate-x-1' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
                       <span>上一题</span>
                     </button>
                     
-                    <button className="group flex items-center gap-2 px-4 py-2 rounded-lg text-primary-500 hover:text-primary-900 hover:bg-primary-50 transition-all cursor-not-allowed opacity-50" disabled>
+                    <button 
+                      onClick={() => nextQuestion && selectQuestion(nextQuestion)}
+                      disabled={!nextQuestion}
+                      className={`group flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                        nextQuestion 
+                          ? 'text-primary-600 hover:text-primary-900 hover:bg-primary-50 cursor-pointer' 
+                          : 'text-primary-300 cursor-not-allowed opacity-50'
+                      }`}
+                    >
                       <span>下一题</span>
-                      <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-4 h-4 transition-transform ${nextQuestion ? 'group-hover:translate-x-1' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </button>
@@ -1503,7 +1585,7 @@ export default function CodingCommunity({
                        ))}
                        {/* Dynamic tags based on category could go here */}
                        <span className="px-2 py-1 bg-accent-copper/10 text-accent-copper text-xs rounded border border-accent-copper/20">
-                          {categories.find(c => c.id === selectedQuestion.categoryId)?.name || '通用'}
+                          {categories && categories.length > 0 ? (categories.find(c => c.id === selectedQuestion.categoryId)?.name || '通用') : '通用'}
                        </span>
                     </div>
                     <p className="text-[10px] text-primary-400 mt-4 text-center">

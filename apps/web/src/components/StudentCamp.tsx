@@ -143,7 +143,7 @@ const StudentCamp = () => {
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full bg-neutral-white overflow-y-auto relative scroll-smooth custom-scrollbar">
+    <div ref={containerRef} className="flex flex-col h-full bg-neutral-white overflow-y-auto relative scroll-smooth scrollbar-hide">
       {/* Hero Section */}
       <div className="relative bg-primary-900 text-white py-24 px-6 sm:px-12 overflow-hidden shrink-0 isolate">
         {/* Modern Grid Background */}
